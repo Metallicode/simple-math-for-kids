@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Ordering Game</title>
+    <style>
+        body { 
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #e8eaf6; padding: 20px; color: #283593;
+            margin: 0; overflow-x: hidden;
+        }
+        
+        h1 { color: #3f51b5; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; text-align: center; }
+
+        #instructions { font-size: 24px; font-weight: bold; color: #ff4081; margin-bottom: 20px; text-align: center; min-height: 35px; }
+
+        .game-board {
+            background: white; padding: 30px; border-radius: 25px; 
+            border: 4px solid #c5cae9; box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 40px;
+            position: relative; z-index: 10;
+        }
+
+        .row {
+            display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center;
+            min-height: 110px; /* Taller to accommodate the biggest blocks */
+        }
+
+        /* The draggable number blocks - Width and Height are now dynamic! */
+        .number-block {
+            border-radius: 15px;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: bold; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            cursor: pointer; box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+            transition: transform 0.1s, box-shadow 0.1s;
+            user-select: none;
+        }
+
+        .number-block:active {
+            transform: translateY(6px); box-shadow: 0 0px 0 rgba(0,0,0,0.2);
+        }
+
+        /* The empty slots at the bottom */
+        .target-slot {
+            width: 90px; height: 90px; border-radius: 15px;
+            border: 4px dashed #9fa8da; background-color: #e8eaf6;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .drag-over {
+            transform: scale(1.1);
+            border: 4px dashed #ff4081 !important;
+        }
+
+        button { 
+            font-size: 28px; padding: 15px 40px; font-family: inherit; font-weight: bold;
+            background-color: #00e676; color: white; border: none; border-radius: 20px; 
+            cursor: pointer; box-shadow: 0 6px 0 #00c853; transition: 0.1s; 
+            margin-top: 20px; display: none; 
+            position: relative; z-index: 20;
+        }
+        
+        button:active { transform: translateY(6px); box-shadow: 0 0px 0 #00c853; }
+
+        #confetti-svg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 100;
+        }
+
+        .particle {
+            transition: all 1.5s cubic-bezier(0.1, 0.8, 0.3, 1);
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>🚂 Order the Train! 🚂</h1>
+    <div id="instructions">Click the numbers to move them down!</div>
+
+    <div class="game-board">
+        <div class="row" id="source-row"></div>
+        
+        <hr style="width: 80%; border: 2px solid #e8eaf6; border-radius: 2px;">
+
+        <div class="row" id="target-row"></div>
+    </div>
+
+    <button id="resetBtn" onclick="initGame()">Play Again!</button>
+    
+    <svg id="confetti-svg"></svg>
+
+<script>
+    const sourceRow = document.getElementById('source-row');
+    const targetRow = document.getElementById('target-row');
+    const instructions = document.getElementById('instructions');
+    const resetBtn = document.getElementById('resetBtn');
+    const confettiSvg = document.getElementById('confetti-svg');
+
+    const funColors = ['#ff5252', '#ff4081', '#e040fb', '#7c4dff', '#536dfe', '#448aff', '#40c4ff', '#18ffff', '#69f0ae', '#b2ff59', '#eeff41', '#ffd740', '#ffab40', '#ff6e40'];
+
+    let draggedBlock = null;
+
+    window.onload = initGame;
+
+    function initGame() {
+        sourceRow.innerHTML = '';
+        targetRow.innerHTML = '';
+        confettiSvg.innerHTML = '';
+        resetBtn.style.display = 'none';
+        instructions.innerText = "Click the numbers to move them down!";
+        instructions.style.color = '#ff4081';
+
+        let numbers = new Set();
+        while(numbers.size < 10) {
+            numbers.add(Math.floor(Math.random() * 101));
+        }
+        
+        let numArr = Array.from(numbers);
+        numArr.sort(() => Math.random() - 0.5);
+
+        numArr.forEach((num, index) => {
+            let block = document.createElement('div');
+            block.className = 'number-block';
+            block.innerText = num;
+            block.style.backgroundColor = funColors[Math.floor(Math.random() * funColors.length)];
+            
+            // --- NEW: DYNAMIC SIZING ---
+            // Calculate a size between 45px (for 0) and 90px (for 100)
+            const pixelSize = 45 + (num / 100) * 45; 
+            block.style.width = `${pixelSize}px`;
+            block.style.height = `${pixelSize}px`;
+            
+            // Scale the font size slightly so big numbers have big text, and small have small
+            const fontSize = 16 + (num / 100) * 16;
+            block.style.fontSize = `${fontSize}px`;
+
+            block.onclick = () => moveToTarget(block);
+            sourceRow.appendChild(block);
+
+            // Create target slot (these stay a fixed max size so the layout is stable)
+            let slot = document.createElement('div');
+            slot.className = 'target-slot';
+            targetRow.appendChild(slot);
+        });
+    }
+
+    function moveToTarget(block) {
+        const slots = document.querySelectorAll('.target-slot');
+        for (let slot of slots) {
+            if (!slot.hasChildNodes()) {
+                slot.appendChild(block);
+                block.onclick = null; 
+                checkState();
+                return;
+            }
+        }
+    }
+
+    function checkState() {
+        const slots = document.querySelectorAll('.target-slot');
+        let currentOrder = [];
+        
+        slots.forEach(slot => {
+            if(slot.firstChild) {
+                currentOrder.push(parseInt(slot.firstChild.innerText));
+            }
+        });
+
+        if(currentOrder.length < 10) return;
+
+        let isSorted = true;
+        for(let i = 0; i < currentOrder.length - 1; i++) {
+            if(currentOrder[i] > currentOrder[i+1]) {
+                isSorted = false;
+                break;
+            }
+        }
+
+        if(isSorted) {
+            winGame();
+        } else {
+            instructions.innerText = "Oops! Drag and drop the numbers to swap them into the right order!";
+            instructions.style.color = '#f57c00';
+            enableDragAndDrop();
+        }
+    }
+
+    function enableDragAndDrop() {
+        const blocks = document.querySelectorAll('.target-slot .number-block');
+        blocks.forEach(block => {
+            block.setAttribute('draggable', 'true');
+            block.addEventListener('dragstart', handleDragStart);
+            block.addEventListener('dragover', handleDragOver);
+            block.addEventListener('dragleave', handleDragLeave);
+            block.addEventListener('drop', handleDrop);
+            block.addEventListener('dragend', handleDragEnd);
+            block.onclick = handleTouchSwap;
+        });
+    }
+
+    function handleDragStart(e) {
+        draggedBlock = this;
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => this.style.opacity = '0.5', 0);
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault(); 
+        e.dataTransfer.dropEffect = 'move';
+        if (this !== draggedBlock) {
+            this.classList.add('drag-over');
+        }
+        return false;
+    }
+
+    function handleDragLeave(e) {
+        this.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+        e.stopPropagation();
+        this.classList.remove('drag-over');
+        
+        if (draggedBlock !== this) {
+            swapBlocks(draggedBlock, this);
+        }
+        return false;
+    }
+
+    function handleDragEnd(e) {
+        this.style.opacity = '1';
+        document.querySelectorAll('.number-block').forEach(b => b.classList.remove('drag-over'));
+        checkState(); 
+    }
+
+    let selectedForSwap = null;
+    function handleTouchSwap(e) {
+        if (!selectedForSwap) {
+            selectedForSwap = this;
+            this.style.transform = 'scale(1.1)';
+            this.style.border = '4px solid white';
+        } else {
+            if (selectedForSwap !== this) {
+                swapBlocks(selectedForSwap, this);
+            }
+            selectedForSwap.style.transform = '';
+            selectedForSwap.style.border = 'none';
+            selectedForSwap = null;
+            checkState(); 
+        }
+    }
+
+    function swapBlocks(blockA, blockB) {
+        const parentA = blockA.parentNode;
+        const parentB = blockB.parentNode;
+        
+        parentA.appendChild(blockB);
+        parentB.appendChild(blockA);
+    }
+
+    function winGame() {
+        instructions.innerText = "Very good! 🎉 Perfect order!";
+        instructions.style.color = '#00c853';
+        resetBtn.style.display = 'block';
+        
+        const blocks = document.querySelectorAll('.number-block');
+        blocks.forEach(block => {
+            block.setAttribute('draggable', 'false');
+            block.onclick = null;
+        });
+
+        fireGiantConfetti();
+    }
+
+    function fireGiantConfetti() {
+        const colors = ['#ff5252', '#00e676', '#00b0ff', '#e040fb', '#ffeb3b'];
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        
+        for (let i = 0; i < 150; i++) {
+            const particle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            particle.setAttribute("cx", centerX);
+            particle.setAttribute("cy", centerY);
+            particle.setAttribute("r", Math.random() * 8 + 4);
+            particle.setAttribute("class", "particle");
+            particle.style.fill = colors[Math.floor(Math.random() * colors.length)];
+            confettiSvg.appendChild(particle);
+            
+            particle.getBoundingClientRect(); 
+            
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 800 + 100; 
+            
+            particle.setAttribute("cx", centerX + Math.cos(angle) * distance);
+            particle.setAttribute("cy", centerY + Math.sin(angle) * distance + 200);
+            particle.style.opacity = "0";
+        }
+    }
+</script>
+</body>
+</html>

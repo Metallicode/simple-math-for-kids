@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Missing Piece Puzzle</title>
+    <style>
+        body { 
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #e0f7fa; padding: 20px; color: #006064;
+            margin: 0; overflow-x: hidden;
+        }
+        
+        h1 { color: #0097a7; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; text-align: center; }
+
+        #instructions { font-size: 24px; font-weight: bold; color: #00796b; margin-bottom: 10px; text-align: center; }
+        #streak-counter { font-size: 20px; font-weight: bold; color: #ff8f00; margin-bottom: 20px; background: white; padding: 5px 15px; border-radius: 15px; border: 2px solid #ffca28; }
+
+        .game-board {
+            width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 40px;
+            align-items: center; position: relative; z-index: 10;
+        }
+
+        /* The main sequence row */
+        .sequence-container {
+            display: flex; gap: 10px; padding: 20px;
+            background: white; border-radius: 20px;
+            border: 4px solid #b2ebf2; box-shadow: 0 8px 15px rgba(0,0,0,0.05);
+            flex-wrap: wrap; justify-content: center;
+        }
+
+        /* Individual slots in the sequence */
+        .slot {
+            width: 80px; height: 80px;
+            display: flex; justify-content: center; align-items: center;
+            border-radius: 15px;
+        }
+
+        .filled-slot {
+            background-color: #f5f5f5;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+
+        .empty-slot {
+            background-color: #e0f7fa;
+            border: 4px dashed #00bcd4;
+            font-size: 40px; font-weight: bold; color: #00acc1;
+            box-sizing: border-box;
+        }
+
+        /* The options the child can click */
+        .options-container {
+            display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+        }
+
+        .option-btn {
+            width: 100px; height: 100px;
+            background: white; border: 4px solid #81c784; border-radius: 20px;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; box-shadow: 0 6px 0 #4caf50;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .option-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 0 #4caf50; }
+        .option-btn:active { transform: translateY(6px); box-shadow: 0 0px 0 #4caf50; }
+
+        .wrong-option {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+            border-color: #e53935 !important;
+            box-shadow: 0 6px 0 #c62828 !important;
+        }
+
+        /* SVG Shape Styles */
+        svg { width: 80%; height: 80%; drop-shadow: 2px 2px 2px rgba(0,0,0,0.2); }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+            40%, 60% { transform: translate3d(8px, 0, 0); }
+        }
+
+        #confetti-svg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 100;
+        }
+        .particle { transition: all 1s cubic-bezier(0.1, 0.8, 0.3, 1); }
+
+    </style>
+</head>
+<body>
+
+    <h1>🧩 Missing Piece! 🧩</h1>
+    <div id="instructions">Which shape completes the pattern?</div>
+    <div id="streak-counter">Streak: 0 🔥</div>
+
+    <div class="game-board">
+        <div class="sequence-container" id="sequence"></div>
+        <div class="options-container" id="options"></div>
+    </div>
+    
+    <svg id="confetti-svg"></svg>
+
+<script>
+    const sequenceContainer = document.getElementById('sequence');
+    const optionsContainer = document.getElementById('options');
+    const streakCounter = document.getElementById('streak-counter');
+    const confettiSvg = document.getElementById('confetti-svg');
+
+    // SVG definitions for crisp, scalable shapes
+    const shapes = {
+        circle: '<circle cx="50" cy="50" r="45" />',
+        square: '<rect x="10" y="10" width="80" height="80" rx="15" />',
+        triangle: '<polygon points="50,10 90,90 10,90" stroke-linejoin="round" />',
+        star: '<polygon points="50,5 61,35 93,35 67,54 77,85 50,66 23,85 33,54 7,35 39,35" stroke-linejoin="round" />'
+    };
+    
+    const colors = ['#ff5252', '#4caf50', '#2196f3', '#ffeb3b', '#9c27b0', '#ff9800'];
+    const shapeKeys = Object.keys(shapes);
+
+    let streak = 0;
+    let isAnimating = false;
+    let currentCorrectAnswer = null;
+
+    window.onload = initRound;
+
+    function getRandomItem(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function generateSvg(shapeName, color) {
+        return `<svg viewBox="0 0 100 100" fill="${color}" stroke="rgba(0,0,0,0.1)" stroke-width="2">${shapes[shapeName]}</svg>`;
+    }
+
+    function initRound() {
+        isAnimating = false;
+        sequenceContainer.innerHTML = '';
+        optionsContainer.innerHTML = '';
+        confettiSvg.innerHTML = '';
+
+        // 1. Create the base pattern rule (A-B, A-A-B, or A-B-C)
+        const patternLengths = [2, 3];
+        const pLen = getRandomItem(patternLengths);
+        let basePattern = [];
+        
+        // Ensure items in the base pattern are distinct
+        while (basePattern.length < pLen) {
+            let newItem = { shape: getRandomItem(shapeKeys), color: getRandomItem(colors) };
+            if (!basePattern.some(item => item.shape === newItem.shape && item.color === newItem.color)) {
+                basePattern.push(newItem);
+            }
+        }
+
+        // 2. Build the full sequence of 7 items
+        const TOTAL_SLOTS = 7;
+        let fullSequence = [];
+        for (let i = 0; i < TOTAL_SLOTS; i++) {
+            fullSequence.push(basePattern[i % pLen]);
+        }
+
+        // 3. Pick ONE index to hide (between index 2 and 6 so the pattern is somewhat established)
+        const hiddenIndex = Math.floor(Math.random() * 4) + 2;
+        currentCorrectAnswer = fullSequence[hiddenIndex];
+
+        // 4. Render the Sequence UI
+        fullSequence.forEach((item, index) => {
+            const slot = document.createElement('div');
+            
+            if (index === hiddenIndex) {
+                slot.className = 'slot empty-slot';
+                slot.id = 'missing-hole';
+                slot.innerText = '?';
+            } else {
+                slot.className = 'slot filled-slot';
+                slot.innerHTML = generateSvg(item.shape, item.color);
+            }
+            sequenceContainer.appendChild(slot);
+        });
+
+        // 5. Generate Options (1 correct, 2 distractors)
+        let options = [currentCorrectAnswer];
+        
+        // Add a distractor from the base pattern (if it's not the correct answer)
+        let patternDistractor = basePattern.find(item => item !== currentCorrectAnswer);
+        if (patternDistractor) options.push(patternDistractor);
+
+        // Fill the rest with random distractors
+        while (options.length < 3) {
+            let randomDistractor = { shape: getRandomItem(shapeKeys), color: getRandomItem(colors) };
+            if (!options.some(opt => opt.shape === randomDistractor.shape && opt.color === randomDistractor.color)) {
+                options.push(randomDistractor);
+            }
+        }
+
+        // Shuffle the options
+        options.sort(() => Math.random() - 0.5);
+
+        // 6. Render the Options UI
+        options.forEach(opt => {
+            const btn = document.createElement('div');
+            btn.className = 'option-btn';
+            btn.innerHTML = generateSvg(opt.shape, opt.color);
+            btn.onclick = () => handleOptionClick(btn, opt);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    function handleOptionClick(clickedBtn, selectedOption) {
+        if (isAnimating) return;
+
+        const isCorrect = (selectedOption.shape === currentCorrectAnswer.shape && selectedOption.color === currentCorrectAnswer.color);
+
+        if (isCorrect) {
+            isAnimating = true;
+            streak++;
+            streakCounter.innerText = `Streak: ${streak} 🔥`;
+            
+            // Plop the SVG into the empty hole
+            const hole = document.getElementById('missing-hole');
+            hole.innerHTML = clickedBtn.innerHTML;
+            hole.style.border = '4px solid #4caf50';
+            hole.style.backgroundColor = '#e8f5e9';
+            hole.style.color = 'transparent'; // Hides the '?'
+            
+            fireConfetti(hole);
+            
+            // Next round
+            setTimeout(initRound, 1500);
+        } else {
+            // Wrong answer
+            streak = 0;
+            streakCounter.innerText = `Streak: 0 ❌`;
+            clickedBtn.classList.add('wrong-option');
+            
+            setTimeout(() => {
+                clickedBtn.classList.remove('wrong-option');
+            }, 500);
+        }
+    }
+
+    function fireConfetti(element) {
+        const rect = element.getBoundingClientRect();
+        const centerX = rect.left + (rect.width / 2);
+        const centerY = rect.top + (rect.height / 2);
+        const confettiColors = ['#e53935', '#4caf50', '#2196f3', '#ffeb3b', '#ff9800'];
+        
+        for (let i = 0; i < 50; i++) {
+            const particle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            particle.setAttribute("cx", centerX);
+            particle.setAttribute("cy", centerY);
+            particle.setAttribute("r", Math.random() * 6 + 3);
+            particle.setAttribute("class", "particle");
+            particle.style.fill = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+            confettiSvg.appendChild(particle);
+            
+            particle.getBoundingClientRect(); 
+            
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 200 + 50; 
+            
+            particle.setAttribute("cx", centerX + Math.cos(angle) * distance);
+            particle.setAttribute("cy", centerY + Math.sin(angle) * distance + 100);
+            particle.style.opacity = "0";
+            
+            setTimeout(() => particle.remove(), 1000);
+        }
+    }
+</script>
+</body>
+</html>

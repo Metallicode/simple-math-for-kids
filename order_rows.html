@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pattern Detective</title>
+    <style>
+        body { 
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #fce4ec; padding: 20px; color: #37474f;
+            margin: 0; overflow-x: hidden;
+        }
+        
+        h1 { color: #d81b60; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; text-align: center; }
+
+        #instructions { font-size: 24px; font-weight: bold; color: #880e4f; margin-bottom: 10px; text-align: center; }
+        #streak-counter { font-size: 20px; font-weight: bold; color: #f57c00; margin-bottom: 20px; background: white; padding: 5px 15px; border-radius: 15px; border: 2px solid #ffb74d; }
+
+        .game-board {
+            width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 20px;
+            position: relative; z-index: 10;
+        }
+
+        /* THE FIX: Switched to space-between and removed hard pixel gaps */
+        .pattern-row {
+            background: white; border-radius: 20px; 
+            border: 4px solid #f8bbd0; box-shadow: 0 6px 10px rgba(0,0,0,0.05);
+            display: flex; 
+            justify-content: space-between; /* Browser calculates the gaps automatically! */
+            align-items: center;
+            padding: 15px 10px;
+            cursor: pointer; transition: transform 0.1s, border-color 0.2s, background-color 0.2s;
+            box-sizing: border-box; /* Ensures padding doesn't push width outward */
+        }
+
+        .pattern-row:hover {
+            transform: scale(1.02);
+            border-color: #f06292;
+        }
+
+        .pattern-row:active {
+            transform: scale(0.98);
+        }
+
+        /* THE FIX: Pure percentage width so 120 dots ALWAYS fit */
+        .dot {
+            width: 0.7%; /* 120 dots * 0.7% = 84% width. Leaves 16% for gaps! */
+            aspect-ratio: 1 / 1; 
+            border-radius: 50%;
+            box-shadow: inset -1px -1px 2px rgba(0,0,0,0.3);
+        }
+
+        .dot.red { background-color: #e53935; }
+        .dot.black { background-color: #212121; }
+
+        /* Win/Loss Animations */
+        .correct-row {
+            border-color: #4caf50 !important;
+            background-color: #e8f5e9 !important;
+            pointer-events: none;
+        }
+
+        .wrong-row {
+            border-color: #e53935 !important;
+            background-color: #ffebee !important;
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+            40%, 60% { transform: translate3d(8px, 0, 0); }
+        }
+
+        #confetti-svg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 100;
+        }
+        .particle { transition: all 1s cubic-bezier(0.1, 0.8, 0.3, 1); }
+
+    </style>
+</head>
+<body>
+
+    <h1>🔍 Pattern Detective! 🔍</h1>
+    <div id="instructions">Find the row that repeats a pattern!</div>
+    <div id="streak-counter">Streak: 0 🔥</div>
+
+    <div class="game-board" id="board">
+        </div>
+    
+    <svg id="confetti-svg"></svg>
+
+<script>
+    const board = document.getElementById('board');
+    const streakCounter = document.getElementById('streak-counter');
+    const confettiSvg = document.getElementById('confetti-svg');
+    const DOT_COUNT = 120; 
+
+    let streak = 0;
+    let isAnimating = false;
+
+    window.onload = initRound;
+
+    function initRound() {
+        isAnimating = false;
+        board.innerHTML = '';
+        confettiSvg.innerHTML = '';
+
+        const correctRowIndex = Math.floor(Math.random() * 4);
+
+        for (let i = 0; i < 4; i++) {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'pattern-row';
+            
+            let rowData = [];
+            if (i === correctRowIndex) {
+                rowData = generatePatternRow();
+            } else {
+                rowData = generateRandomRow();
+            }
+
+            rowData.forEach(color => {
+                const dot = document.createElement('div');
+                dot.className = `dot ${color}`;
+                rowDiv.appendChild(dot);
+            });
+
+            rowDiv.onclick = () => handleRowClick(rowDiv, i === correctRowIndex);
+            board.appendChild(rowDiv);
+        }
+    }
+
+    function generatePatternRow() {
+        const lengths = [2, 3, 4, 5, 6]; 
+        const patternLength = lengths[Math.floor(Math.random() * lengths.length)];
+        let basePattern = [];
+        
+        let hasRed = false;
+        let hasBlack = false;
+        
+        while (!hasRed || !hasBlack) {
+            basePattern = [];
+            hasRed = false;
+            hasBlack = false;
+            for (let i = 0; i < patternLength; i++) {
+                const color = Math.random() > 0.5 ? 'red' : 'black';
+                basePattern.push(color);
+                if (color === 'red') hasRed = true;
+                if (color === 'black') hasBlack = true;
+            }
+        }
+
+        let fullRow = [];
+        for (let i = 0; i < DOT_COUNT; i++) {
+            fullRow.push(basePattern[i % patternLength]);
+        }
+        return fullRow;
+    }
+
+    function generateRandomRow() {
+        let fullRow = [];
+        for (let i = 0; i < DOT_COUNT; i++) {
+            fullRow.push(Math.random() > 0.5 ? 'red' : 'black');
+        }
+        return fullRow;
+    }
+
+    function handleRowClick(clickedRow, isCorrect) {
+        if (isAnimating) return; 
+
+        if (isCorrect) {
+            isAnimating = true;
+            streak++;
+            streakCounter.innerText = `Streak: ${streak} 🔥`;
+            clickedRow.classList.add('correct-row');
+            
+            fireConfetti(clickedRow);
+            
+            setTimeout(initRound, 1500);
+        } else {
+            streak = 0;
+            streakCounter.innerText = `Streak: 0 ❌`;
+            clickedRow.classList.add('wrong-row');
+            
+            setTimeout(() => {
+                clickedRow.classList.remove('wrong-row');
+            }, 500);
+        }
+    }
+
+    function fireConfetti(element) {
+        const rect = element.getBoundingClientRect();
+        const centerX = rect.left + (rect.width / 2);
+        const centerY = rect.top + (rect.height / 2);
+        const colors = ['#e53935', '#212121', '#ffeb3b', '#4caf50', '#03a9f4'];
+        
+        for (let i = 0; i < 60; i++) {
+            const particle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            particle.setAttribute("cx", centerX);
+            particle.setAttribute("cy", centerY);
+            particle.setAttribute("r", Math.random() * 6 + 3);
+            particle.setAttribute("class", "particle");
+            particle.style.fill = colors[Math.floor(Math.random() * colors.length)];
+            confettiSvg.appendChild(particle);
+            
+            particle.getBoundingClientRect(); 
+            
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 300 + 50; 
+            
+            particle.setAttribute("cx", centerX + Math.cos(angle) * distance);
+            particle.setAttribute("cy", centerY + Math.sin(angle) * distance + 100);
+            particle.style.opacity = "0";
+            
+            setTimeout(() => particle.remove(), 1000);
+        }
+    }
+</script>
+</body>
+</html>
