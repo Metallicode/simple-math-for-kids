@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Letter Listener</title>
+    <title>Word Explorer</title>
     <style>
         body { 
             font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
             display: flex; flex-direction: column; align-items: center; 
-            background-color: #e3f2fd; padding: 20px; color: #1565c0;
+            background-color: #f3e5f5; padding: 20px; color: #4a148c;
             margin: 0; overflow-x: hidden;
             text-align: center;
         }
         
-        h1 { color: #1976d2; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; }
-        p { font-size: 20px; color: #1e88e5; font-weight: bold; margin-top: 0; margin-bottom: 30px;}
+        h1 { color: #8e24aa; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; }
+        p { font-size: 20px; color: #ab47bc; font-weight: bold; margin-top: 0; margin-bottom: 30px;}
 
         .game-board {
             background: white; padding: 40px 30px 30px 30px; border-radius: 25px; 
-            border: 4px solid #90caf9; box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            border: 4px solid #ce93d8; box-shadow: 0 8px 15px rgba(0,0,0,0.1);
             width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: center; gap: 30px;
             position: relative; z-index: 10;
         }
@@ -60,57 +60,53 @@
             100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
         }
 
-        /* The Speaker Button */
-        #speaker-btn {
-            background-color: #ffb74d; color: white; border: none; border-radius: 50%;
-            width: 100px; height: 100px; font-size: 50px; display: flex; justify-content: center; align-items: center;
-            cursor: pointer; box-shadow: 0 8px 0 #f57c00; transition: transform 0.1s, box-shadow 0.1s;
+        /* The Big Icon Display */
+        #icon-display {
+            background-color: #fff9c4; border: 4px dashed #ffd54f; border-radius: 50%;
+            width: 140px; height: 140px; font-size: 80px; display: flex; justify-content: center; align-items: center;
+            box-shadow: inset 0 0 20px rgba(255, 193, 7, 0.3), 0 8px 0 rgba(0,0,0,0.05);
+            transition: transform 0.2s; user-select: none;
         }
 
-        #speaker-btn:active { transform: translateY(8px); box-shadow: 0 0px 0 #f57c00; }
+        .bounce { animation: bounce-anim 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         
-        .pulse { animation: pulse-anim 1s infinite; }
-        @keyframes pulse-anim {
-            0% { transform: scale(1); box-shadow: 0 8px 0 #f57c00, 0 0 0 0 rgba(255, 183, 77, 0.7); }
-            70% { transform: scale(1.05); box-shadow: 0 8px 0 #f57c00, 0 0 0 20px rgba(255, 183, 77, 0); }
-            100% { transform: scale(1); box-shadow: 0 8px 0 #f57c00, 0 0 0 0 rgba(255, 183, 77, 0); }
+        @keyframes bounce-anim {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
         }
 
-        /* Letter Options */
+        /* Word Options */
         .options-container {
-            display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; width: 100%;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 500px;
         }
 
-        .letter-btn {
-            background: #ffffff; color: #1565c0;
-            border: 4px solid #64b5f6; border-radius: 20px;
-            width: 100px; height: 100px; font-size: 60px; font-weight: bold;
+        .word-btn {
+            background: #ffffff; color: #4a148c;
+            border: 4px solid #ba68c8; border-radius: 20px;
+            padding: 20px; font-size: 32px; font-weight: bold;
             display: flex; justify-content: center; align-items: center;
-            cursor: pointer; box-shadow: 0 8px 0 #64b5f6;
+            cursor: pointer; box-shadow: 0 8px 0 #ba68c8;
             transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-transform: lowercase;
         }
 
-        .letter-btn:hover { transform: translateY(-4px); box-shadow: 0 12px 0 #64b5f6; }
-        .letter-btn:active { transform: translateY(8px); box-shadow: 0 0px 0 #64b5f6; }
+        .word-btn:hover { transform: translateY(-4px); box-shadow: 0 12px 0 #ba68c8; }
+        .word-btn:active { transform: translateY(8px); box-shadow: 0 0px 0 #ba68c8; }
 
         /* Incorrect Guess Animation */
         .wrong-guess {
-            background-color: #ffebee !important;
-            color: #d32f2f !important;
-            border-color: #ef5350 !important;
-            box-shadow: 0 4px 0 #ef5350 !important;
+            background-color: #ffebee !important; color: #d32f2f !important;
+            border-color: #ef5350 !important; box-shadow: 0 4px 0 #ef5350 !important;
             transform: translateY(4px) !important;
             animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
         }
 
         /* Correct Guess Animation */
         .correct-guess {
-            background-color: #e8f5e9 !important;
-            color: #2e7d32 !important;
-            border-color: #66bb6a !important;
-            box-shadow: 0 4px 0 #66bb6a !important;
-            transform: scale(1.15) !important;
-            z-index: 5;
+            background-color: #e8f5e9 !important; color: #2e7d32 !important;
+            border-color: #66bb6a !important; box-shadow: 0 4px 0 #66bb6a !important;
+            transform: scale(1.1) !important; z-index: 5;
         }
 
         @keyframes shake {
@@ -126,44 +122,48 @@
         }
 
         #feedback-text {
-            font-size: 40px; font-weight: bold; color: #43a047;
+            font-size: 40px; font-weight: bold; color: #8e24aa;
             opacity: 0; transition: opacity 0.2s, transform 0.2s;
-            transform: scale(0.5); text-shadow: 2px 2px 0px #e8f5e9;
+            transform: scale(0.5); text-shadow: 2px 2px 0px #f3e5f5;
         }
 
         .show-feedback { opacity: 1 !important; transform: scale(1) !important; }
 
-        /* Restart Button (Hidden until win) */
+        /* Restart Button */
         #restart-btn {
-            background-color: #ba68c8; color: white; border: none; border-radius: 15px;
+            background-color: #42a5f5; color: white; border: none; border-radius: 15px;
             padding: 15px 40px; font-size: 24px; font-weight: bold; cursor: pointer;
-            box-shadow: 0 6px 0 #8e24aa; display: none; margin-top: 20px;
+            box-shadow: 0 6px 0 #1e88e5; display: none; margin-top: 20px;
         }
-        #restart-btn:active { transform: translateY(6px); box-shadow: 0 0px 0 #8e24aa; }
+        #restart-btn:active { transform: translateY(6px); box-shadow: 0 0px 0 #1e88e5; }
 
         /* Confetti */
         #confetti-svg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
         .particle { transition: all 1s cubic-bezier(0.1, 0.8, 0.3, 1); }
 
+        /* Make it stack nicely on very small phones */
+        @media (max-width: 500px) {
+            .options-container { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
 
-    <h1>🔤 Letter Listener 🔤</h1>
-    <p>Listen carefully and click the matching letter!</p>
+    <h1>📝 Word Explorer 📝</h1>
+    <p>Look at the picture and find the matching word!</p>
 
     <div class="game-board">
         <div id="score-board">⭐ Score: <span id="score-val">0</span> / 50</div>
         
         <div id="streak-banner">🔥 You're on a roll! 🔥</div>
 
-        <button id="speaker-btn" class="pulse" onclick="playSound()">🔊</button>
+        <div id="icon-display">🍎</div>
 
         <div class="options-container" id="options">
             </div>
 
         <div id="feedback-area">
-            <div id="feedback-text">Very Good! 🌟</div>
+            <div id="feedback-text">Awesome! 🌟</div>
             <button id="restart-btn" onclick="resetGame()">Play Again 🔄</button>
         </div>
     </div>
@@ -172,7 +172,7 @@
 
 <script>
     const optionsContainer = document.getElementById('options');
-    const speakerBtn = document.getElementById('speaker-btn');
+    const iconDisplay = document.getElementById('icon-display');
     const feedbackText = document.getElementById('feedback-text');
     const scoreVal = document.getElementById('score-val');
     const scoreBoard = document.getElementById('score-board');
@@ -180,11 +180,28 @@
     const restartBtn = document.getElementById('restart-btn');
     const confettiSvg = document.getElementById('confetti-svg');
 
-    const alphabet = "abcdefghijklmnopqrstuvwxyz".split("");
-    let currentLetter = "";
+    // Kid-friendly visual dictionary
+    const dictionary = [
+        { icon: "🍎", word: "apple" }, { icon: "🐶", word: "dog" },
+        { icon: "🐱", word: "cat" },   { icon: "🚗", word: "car" },
+        { icon: "☀️", word: "sun" },   { icon: "🌙", word: "moon" },
+        { icon: "⭐", word: "star" },  { icon: "🌳", word: "tree" },
+        { icon: "🐟", word: "fish" },  { icon: "🐦", word: "bird" },
+        { icon: "🐸", word: "frog" },  { icon: "🐷", word: "pig" },
+        { icon: "🐄", word: "cow" },   { icon: "🐻", word: "bear" },
+        { icon: "⚽", word: "ball" },  { icon: "🎈", word: "balloon" },
+        { icon: "🚲", word: "bike" },  { icon: "🚂", word: "train" },
+        { icon: "🚀", word: "rocket" },{ icon: "🏠", word: "house" },
+        { icon: "🍌", word: "banana" },{ icon: "🦆", word: "duck" },
+        { icon: "🦁", word: "lion" },  { icon: "🐘", word: "elephant" },
+        { icon: "🐢", word: "turtle" },{ icon: "📚", word: "book" },
+        { icon: "👑", word: "crown" }, { icon: "🔥", word: "fire" },
+        { icon: "🍓", word: "strawberry" }, { icon: "🍕", word: "pizza" }
+    ];
+
+    let currentItem = null;
     let isWaitingForNext = false;
     let isShaking = false; 
-    let currentAudio = null;
 
     // Game Progress Variables
     let score = 0;
@@ -193,9 +210,8 @@
 
     window.onload = startRound;
 
-    // Picks a random goal of 4, 5, 6, or 7 for the streak animation
     function getRandomStreakTarget() {
-        return Math.floor(Math.random() * 4) + 4; 
+        return Math.floor(Math.random() * 4) + 4; // Target is 4, 5, 6, or 7
     }
 
     function resetGame() {
@@ -204,8 +220,8 @@
         targetStreak = getRandomStreakTarget();
         scoreVal.innerText = score;
         restartBtn.style.display = 'none';
-        speakerBtn.style.display = 'flex';
-        feedbackText.innerText = "Very Good! 🌟";
+        iconDisplay.style.display = 'flex';
+        feedbackText.innerText = "Awesome! 🌟";
         startRound();
     }
 
@@ -215,52 +231,42 @@
         optionsContainer.innerHTML = '';
         confettiSvg.innerHTML = '';
         feedbackText.classList.remove('show-feedback');
-        speakerBtn.classList.add('pulse');
+        
+        // Add a fun little bounce to the new picture
+        iconDisplay.classList.remove('bounce');
+        void iconDisplay.offsetWidth; // Trigger reflow to restart animation
+        iconDisplay.classList.add('bounce');
 
-        const isLowerCaseRound = Math.random() > 0.5;
+        // 1. Pick the correct item
+        currentItem = dictionary[Math.floor(Math.random() * dictionary.length)];
+        iconDisplay.innerText = currentItem.icon;
 
-        currentLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
-
-        let options = [currentLetter];
-        while (options.length < 5) {
-            let randomLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
-            if (!options.includes(randomLetter)) {
-                options.push(randomLetter);
+        // 2. Pick 3 random distractors (make sure they aren't the correct word)
+        let options = [currentItem.word];
+        while (options.length < 4) {
+            let randomItem = dictionary[Math.floor(Math.random() * dictionary.length)];
+            if (!options.includes(randomItem.word)) {
+                options.push(randomItem.word);
             }
         }
 
+        // 3. Shuffle the options
         options.sort(() => Math.random() - 0.5);
 
-        options.forEach(letter => {
+        // 4. Create the buttons
+        options.forEach(word => {
             const btn = document.createElement('button');
-            btn.className = 'letter-btn';
-            btn.innerText = isLowerCaseRound ? letter : letter.toUpperCase(); 
-            btn.onclick = () => handleGuess(btn, letter);
+            btn.className = 'word-btn';
+            btn.innerText = word; 
+            btn.onclick = () => handleGuess(btn, word);
             optionsContainer.appendChild(btn);
         });
-
-        setTimeout(playSound, 400);
     }
 
-    function playSound() {
-        if (currentAudio) {
-            currentAudio.pause();
-            currentAudio.currentTime = 0;
-        }
-        
-        currentAudio = new Audio(`sounds/${currentLetter}.wav`);
-        
-        currentAudio.play().catch(e => {
-            console.log(`Could not play sounds/${currentLetter}.wav. Ensure files exist.`);
-        });
-
-        speakerBtn.classList.remove('pulse');
-    }
-
-    function handleGuess(btnElement, guessedLetter) {
+    function handleGuess(btnElement, guessedWord) {
         if (isWaitingForNext || isShaking) return;
 
-        if (guessedLetter === currentLetter) {
+        if (guessedWord === currentItem.word) {
             // --- CORRECT GUESS ---
             isWaitingForNext = true;
             btnElement.classList.add('correct-guess');
@@ -275,51 +281,43 @@
             currentStreak++;
             scoreVal.innerText = score;
             
-            // Pop the score badge
             scoreBoard.classList.add('pop-score');
             setTimeout(() => scoreBoard.classList.remove('pop-score'), 300);
 
             feedbackText.classList.add('show-feedback');
             fireConfetti();
 
-            // Check Win Condition
+            // Win Condition Check
             if (score >= 50) {
                 triggerWin();
-                return; // Stop the loop, game is over!
+                return; 
             }
 
-            // Check Streak Animation
-            let delayNextRound = 1000; // Standard 1-second auto-advance
+            // Streak Animation Check
+            let delayNextRound = 1000; 
 
             if (currentStreak === targetStreak) {
-                // They hit the random streak goal! Show animation
                 streakBanner.classList.add('show-streak');
-                
-                // Remove class after animation finishes so it can run again later
                 setTimeout(() => streakBanner.classList.remove('show-streak'), 2000);
                 
-                // Reset streak tracking for the next random goal
                 currentStreak = 0;
                 targetStreak = getRandomStreakTarget();
-                
-                // Wait slightly longer before auto-advancing so they can enjoy the pop-up
-                delayNextRound = 2200; 
+                delayNextRound = 2200; // Wait longer so they see the banner
             }
 
-            // Auto-advance to next round
+            // Auto-advance
             setTimeout(startRound, delayNextRound);
 
         } else {
             // --- INCORRECT GUESS ---
             isShaking = true;
-            currentStreak = 0; // Break the streak :(
-            targetStreak = getRandomStreakTarget(); // Pick a new target
+            currentStreak = 0; 
+            targetStreak = getRandomStreakTarget(); 
             
             btnElement.classList.add('wrong-guess');
             
             setTimeout(() => {
                 btnElement.classList.remove('wrong-guess');
-                playSound(); // Play sound AFTER the shake
                 isShaking = false;
             }, 500);
         }
@@ -327,22 +325,20 @@
 
     function triggerWin() {
         optionsContainer.innerHTML = '';
-        speakerBtn.style.display = 'none';
+        iconDisplay.style.display = 'none';
         
         feedbackText.innerText = "🏆 YOU WIN! 🏆";
         feedbackText.style.fontSize = "60px";
         feedbackText.classList.add('show-feedback');
         
         restartBtn.style.display = 'block';
-        
-        // Massive Confetti Explosion
         fireConfetti(true);
     }
 
     function fireConfetti(isMassive = false) {
         const centerX = window.innerWidth / 2;
         const centerY = window.innerHeight / 2;
-        const colors = ['#64b5f6', '#4dd0e1', '#81c784', '#fff176', '#ffb74d', '#f06292'];
+        const colors = ['#ba68c8', '#4dd0e1', '#81c784', '#fff176', '#ffb74d', '#f06292'];
         
         const particleCount = isMassive ? 150 : 40;
         

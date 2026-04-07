@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pac-Man with Custom Sprites</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #11182d;
+      --accent: #ffd54a;
+      --text: #eef3ff;
+      --muted: #9db0d1;
+      --wall: #2247ff;
+      --pellet: #ffe9a1;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #09101f, #05070d);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: 2rem;
+      color: var(--accent);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      background: rgba(17, 24, 45, 0.95);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      font-size: 1.1rem;
+    }
+
+    .row {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    input[type="file"],
+    input[type="range"],
+    button {
+      width: 100%;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      background: var(--accent);
+      color: #141414;
+      margin-bottom: 10px;
+    }
+
+    button.secondary {
+      background: #263556;
+      color: var(--text);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .stats {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 0 0 12px;
+    }
+
+    .stat {
+      background: rgba(255,255,255,0.05);
+      padding: 10px 12px;
+      border-radius: 12px;
+      min-width: 110px;
+    }
+
+    canvas {
+      width: 100%;
+      max-width: 840px;
+      background: #000;
+      border: 3px solid #1d2f72;
+      border-radius: 18px;
+      image-rendering: pixelated;
+      display: block;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .preview {
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .preview img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+      padding: 4px;
+    }
+
+    .controls {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Pac-Man with Custom Sprite Images</h1>
+    <div class="layout">
+      <div class="panel">
+        <h2>Custom Images</h2>
+
+        <div class="row">
+          <label for="pacmanUpload">Pac-Man image</label>
+          <input id="pacmanUpload" type="file" accept="image/*" />
+        </div>
+
+        <div class="row">
+          <label for="ghostUpload">Ghost image</label>
+          <input id="ghostUpload" type="file" accept="image/*" />
+        </div>
+
+        <div class="row">
+          <label for="spriteScale">Sprite size scale</label>
+          <input id="spriteScale" type="range" min="0.6" max="1.4" step="0.05" value="0.9" />
+        </div>
+
+        <button id="startBtn">Start / Restart</button>
+        <button id="pauseBtn" class="secondary">Pause</button>
+
+        <p class="hint">
+          Use arrow keys to move. Upload PNG, JPG, or WebP files to replace the default Pac-Man and ghost drawings. If no image is loaded, the game uses built-in classic-style shapes.
+        </p>
+
+        <div class="preview-grid">
+          <div class="preview">
+            <div>Pac-Man</div>
+            <img id="pacmanPreview" alt="Pac-Man preview" />
+          </div>
+          <div class="preview">
+            <div>Ghost</div>
+            <img id="ghostPreview" alt="Ghost preview" />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="stats">
+          <div class="stat"><strong>Score:</strong> <span id="score">0</span></div>
+          <div class="stat"><strong>Lives:</strong> <span id="lives">3</span></div>
+          <div class="stat"><strong>Pellets:</strong> <span id="pellets">0</span></div>
+        </div>
+        <canvas id="game" width="840" height="840"></canvas>
+        <div class="controls">Controls: ↑ ↓ ← →</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TILE = 40;
+    const ROWS = 21;
+    const COLS = 21;
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const pelletsEl = document.getElementById('pellets');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const pacmanUpload = document.getElementById('pacmanUpload');
+    const ghostUpload = document.getElementById('ghostUpload');
+    const pacmanPreview = document.getElementById('pacmanPreview');
+    const ghostPreview = document.getElementById('ghostPreview');
+    const spriteScaleInput = document.getElementById('spriteScale');
+
+    const WALL = 1;
+    const PELLET = 0;
+    const EMPTY = 2;
+
+    const levelTemplate = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,0,1],
+      [1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1],
+      [1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
+      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+      [1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1],
+      [1,2,0,0,0,0,1,2,0,0,0,0,0,2,1,0,0,0,0,2,1],
+      [1,0,1,1,1,0,1,2,1,1,2,1,1,2,1,0,1,1,1,0,1],
+      [1,0,0,0,1,0,0,0,0,2,2,2,0,0,0,0,1,0,0,0,1],
+      [1,1,1,0,1,1,1,0,1,1,2,1,1,0,1,1,1,0,1,1,1],
+      [1,0,0,0,0,0,1,0,0,0,2,0,0,0,1,0,0,0,0,0,1],
+      [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,0,1],
+      [1,0,1,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,1,0,1],
+      [1,0,1,0,1,1,1,0,1,0,0,0,1,0,1,1,1,0,1,0,1],
+      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+      [1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1],
+      [1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,1],
+      [1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    let level = [];
+    let pelletsLeft = 0;
+    let score = 0;
+    let lives = 3;
+    let paused = false;
+    let gameOver = false;
+
+    const pacman = {
+      x: 1,
+      y: 1,
+      dirX: 0,
+      dirY: 0,
+      nextDirX: 0,
+      nextDirY: 0,
+      mouth: 0,
+      mouthDir: 1
+    };
+
+    const ghosts = [
+      { x: 10, y: 10, color: '#ff4d6d', dirX: 1, dirY: 0 },
+      { x: 9, y: 10, color: '#00e5ff', dirX: -1, dirY: 0 },
+      { x: 11, y: 10, color: '#ffb84d', dirX: 0, dirY: 1 },
+      { x: 10, y: 11, color: '#ff77ff', dirX: 0, dirY: -1 }
+    ];
+
+    const ghostStart = ghosts.map(g => ({ ...g }));
+
+    let pacmanImage = null;
+    let ghostImage = null;
+
+    function cloneLevel() {
+      level = levelTemplate.map(row => [...row]);
+      pelletsLeft = 0;
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (level[y][x] === PELLET) pelletsLeft++;
+        }
+      }
+      pelletsEl.textContent = pelletsLeft;
+    }
+
+    function resetActors(fullReset = false) {
+      pacman.x = 1;
+      pacman.y = 1;
+      pacman.dirX = 0;
+      pacman.dirY = 0;
+      pacman.nextDirX = 0;
+      pacman.nextDirY = 0;
+
+      ghosts.forEach((g, i) => {
+        g.x = ghostStart[i].x;
+        g.y = ghostStart[i].y;
+        g.dirX = ghostStart[i].dirX;
+        g.dirY = ghostStart[i].dirY;
+      });
+
+      if (fullReset) {
+        score = 0;
+        lives = 3;
+        gameOver = false;
+        paused = false;
+        updateStats();
+      }
+    }
+
+    function updateStats() {
+      scoreEl.textContent = score;
+      livesEl.textContent = lives;
+      pelletsEl.textContent = pelletsLeft;
+    }
+
+    function isWall(x, y) {
+      if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return true;
+      return level[y][x] === WALL;
+    }
+
+    function canMoveTo(x, y) {
+      return !isWall(x, y);
+    }
+
+    function handleUploads(input, callback, previewEl) {
+      input.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            callback(img);
+            previewEl.src = img.src;
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    handleUploads(pacmanUpload, img => pacmanImage = img, pacmanPreview);
+    handleUploads(ghostUpload, img => ghostImage = img, ghostPreview);
+
+    function drawWall(x, y) {
+      ctx.fillStyle = '#0a163f';
+      ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+      ctx.strokeStyle = '#2247ff';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x * TILE + 1.5, y * TILE + 1.5, TILE - 3, TILE - 3);
+    }
+
+    function drawPellet(x, y) {
+      const cx = x * TILE + TILE / 2;
+      const cy = y * TILE + TILE / 2;
+      ctx.fillStyle = '#ffe9a1';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawPacman() {
+      const px = pacman.x * TILE + TILE / 2;
+      const py = pacman.y * TILE + TILE / 2;
+      const scale = parseFloat(spriteScaleInput.value);
+      const size = TILE * scale;
+
+      if (pacmanImage) {
+        ctx.save();
+        ctx.translate(px, py);
+        let angle = 0;
+        if (pacman.dirX === 1) angle = 0;
+        else if (pacman.dirX === -1) angle = Math.PI;
+        else if (pacman.dirY === -1) angle = -Math.PI / 2;
+        else if (pacman.dirY === 1) angle = Math.PI / 2;
+        ctx.rotate(angle);
+        ctx.drawImage(pacmanImage, -size / 2, -size / 2, size, size);
+        ctx.restore();
+        return;
+      }
+
+      let angleStart = 0.2 + pacman.mouth;
+      let angleEnd = Math.PI * 2 - 0.2 - pacman.mouth;
+      let rotation = 0;
+      if (pacman.dirX === -1) rotation = Math.PI;
+      if (pacman.dirY === -1) rotation = -Math.PI / 2;
+      if (pacman.dirY === 1) rotation = Math.PI / 2;
+
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(rotation);
+      ctx.fillStyle = '#ffd54a';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, size / 2, angleStart, angleEnd);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawGhost(ghost) {
+      const px = ghost.x * TILE + TILE / 2;
+      const py = ghost.y * TILE + TILE / 2;
+      const scale = parseFloat(spriteScaleInput.value);
+      const size = TILE * scale;
+
+      if (ghostImage) {
+        ctx.drawImage(ghostImage, px - size / 2, py - size / 2, size, size);
+        return;
+      }
+
+      const w = size;
+      const h = size;
+      const left = px - w / 2;
+      const top = py - h / 2;
+      const bottom = top + h;
+      ctx.fillStyle = ghost.color;
+      ctx.beginPath();
+      ctx.arc(px, top + h * 0.35, w * 0.33, Math.PI, 0);
+      ctx.lineTo(left + w, bottom - h * 0.18);
+      ctx.lineTo(left + w * 0.84, bottom);
+      ctx.lineTo(left + w * 0.68, bottom - h * 0.18);
+      ctx.lineTo(left + w * 0.5, bottom);
+      ctx.lineTo(left + w * 0.32, bottom - h * 0.18);
+      ctx.lineTo(left + w * 0.16, bottom);
+      ctx.lineTo(left, bottom - h * 0.18);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(px - w * 0.12, py - h * 0.05, w * 0.09, 0, Math.PI * 2);
+      ctx.arc(px + w * 0.12, py - h * 0.05, w * 0.09, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#17306b';
+      ctx.beginPath();
+      ctx.arc(px - w * 0.12, py - h * 0.04, w * 0.04, 0, Math.PI * 2);
+      ctx.arc(px + w * 0.12, py - h * 0.04, w * 0.04, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawBoard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (level[y][x] === WALL) drawWall(x, y);
+          else if (level[y][x] === PELLET) drawPellet(x, y);
+        }
+      }
+
+      drawPacman();
+      ghosts.forEach(drawGhost);
+
+      if (paused || gameOver) {
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 42px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(gameOver ? 'Game Over' : 'Paused', canvas.width / 2, canvas.height / 2);
+        ctx.font = '24px Arial';
+        ctx.fillText(gameOver ? 'Press Start / Restart' : 'Press Pause to resume', canvas.width / 2, canvas.height / 2 + 40);
+      }
+    }
+
+    function tryTurnPacman() {
+      const nx = pacman.x + pacman.nextDirX;
+      const ny = pacman.y + pacman.nextDirY;
+      if (canMoveTo(nx, ny)) {
+        pacman.dirX = pacman.nextDirX;
+        pacman.dirY = pacman.nextDirY;
+      }
+    }
+
+    function movePacman() {
+      tryTurnPacman();
+      const nx = pacman.x + pacman.dirX;
+      const ny = pacman.y + pacman.dirY;
+      if (canMoveTo(nx, ny)) {
+        pacman.x = nx;
+        pacman.y = ny;
+      }
+
+      if (level[pacman.y][pacman.x] === PELLET) {
+        level[pacman.y][pacman.x] = EMPTY;
+        pelletsLeft--;
+        score += 10;
+        updateStats();
+        if (pelletsLeft <= 0) {
+          alert('You cleared the maze! Starting again.');
+          cloneLevel();
+          resetActors(true);
+        }
+      }
+
+      pacman.mouth += 0.05 * pacman.mouthDir;
+      if (pacman.mouth > 0.28 || pacman.mouth < 0) pacman.mouthDir *= -1;
+    }
+
+    function getPossibleDirections(entity) {
+      const dirs = [
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 }
+      ];
+      return dirs.filter(d => canMoveTo(entity.x + d.x, entity.y + d.y));
+    }
+
+    function moveGhost(ghost) {
+      const forwardX = ghost.x + ghost.dirX;
+      const forwardY = ghost.y + ghost.dirY;
+      const options = getPossibleDirections(ghost);
+
+      const reverse = { x: -ghost.dirX, y: -ghost.dirY };
+      let filtered = options.filter(d => !(d.x === reverse.x && d.y === reverse.y));
+      if (!canMoveTo(forwardX, forwardY) || filtered.length === 0 || Math.random() < 0.25) {
+        filtered = filtered.length ? filtered : options;
+
+        filtered.sort((a, b) => {
+          const da = Math.abs((ghost.x + a.x) - pacman.x) + Math.abs((ghost.y + a.y) - pacman.y);
+          const db = Math.abs((ghost.x + b.x) - pacman.x) + Math.abs((ghost.y + b.y) - pacman.y);
+          return da - db;
+        });
+
+        const pick = Math.random() < 0.65 ? filtered[0] : filtered[Math.floor(Math.random() * filtered.length)];
+        ghost.dirX = pick.x;
+        ghost.dirY = pick.y;
+      }
+
+      if (canMoveTo(ghost.x + ghost.dirX, ghost.y + ghost.dirY)) {
+        ghost.x += ghost.dirX;
+        ghost.y += ghost.dirY;
+      }
+    }
+
+    function checkCollisions() {
+      for (const ghost of ghosts) {
+        if (ghost.x === pacman.x && ghost.y === pacman.y) {
+          lives--;
+          updateStats();
+          if (lives <= 0) {
+            gameOver = true;
+            paused = true;
+          } else {
+            resetActors(false);
+          }
+          return;
+        }
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp') { pacman.nextDirX = 0; pacman.nextDirY = -1; }
+      if (e.key === 'ArrowDown') { pacman.nextDirX = 0; pacman.nextDirY = 1; }
+      if (e.key === 'ArrowLeft') { pacman.nextDirX = -1; pacman.nextDirY = 0; }
+      if (e.key === 'ArrowRight') { pacman.nextDirX = 1; pacman.nextDirY = 0; }
+    });
+
+    startBtn.addEventListener('click', () => {
+      cloneLevel();
+      resetActors(true);
+      drawBoard();
+    });
+
+    pauseBtn.addEventListener('click', () => {
+      if (gameOver) return;
+      paused = !paused;
+      pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+      drawBoard();
+    });
+
+    let pacmanTick = 0;
+    let ghostTick = 0;
+    function loop() {
+      if (!paused && !gameOver) {
+        pacmanTick++;
+        ghostTick++;
+
+        if (pacmanTick >= 6) {
+          movePacman();
+          pacmanTick = 0;
+        }
+
+        if (ghostTick >= 8) {
+          ghosts.forEach(moveGhost);
+          ghostTick = 0;
+        }
+
+        checkCollisions();
+      }
+
+      drawBoard();
+      requestAnimationFrame(loop);
+    }
+
+    function setDefaultPreviewImages() {
+      const c1 = document.createElement('canvas');
+      c1.width = 64;
+      c1.height = 64;
+      const p = c1.getContext('2d');
+      p.fillStyle = '#ffd54a';
+      p.beginPath();
+      p.moveTo(32, 32);
+      p.arc(32, 32, 24, 0.35, Math.PI * 2 - 0.35);
+      p.closePath();
+      p.fill();
+      pacmanPreview.src = c1.toDataURL();
+
+      const c2 = document.createElement('canvas');
+      c2.width = 64;
+      c2.height = 64;
+      const g = c2.getContext('2d');
+      g.fillStyle = '#ff4d6d';
+      g.beginPath();
+      g.arc(32, 24, 18, Math.PI, 0);
+      g.lineTo(50, 52);
+      g.lineTo(42, 46);
+      g.lineTo(32, 52);
+      g.lineTo(22, 46);
+      g.lineTo(14, 52);
+      g.lineTo(14, 24);
+      g.closePath();
+      g.fill();
+      g.fillStyle = '#fff';
+      g.beginPath();
+      g.arc(25, 28, 5, 0, Math.PI * 2);
+      g.arc(39, 28, 5, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#1a2f77';
+      g.beginPath();
+      g.arc(25, 29, 2.3, 0, Math.PI * 2);
+      g.arc(39, 29, 2.3, 0, Math.PI * 2);
+      g.fill();
+      ghostPreview.src = c2.toDataURL();
+    }
+
+    cloneLevel();
+    resetActors(true);
+    setDefaultPreviewImages();
+    drawBoard();
+    loop();
+  </script>
+</body>
+</html>

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reading Detective</title>
+    <style>
+        body { 
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #e8f5e9; padding: 20px; color: #1b5e20;
+            margin: 0; overflow-x: hidden;
+            text-align: center;
+        }
+        
+        h1 { color: #2e7d32; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; }
+        p { font-size: 20px; color: #43a047; font-weight: bold; margin-top: 0; margin-bottom: 30px;}
+
+        .game-board {
+            background: white; padding: 40px 30px 30px 30px; border-radius: 25px; 
+            border: 4px solid #a5d6a7; box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: center; gap: 30px;
+            position: relative; z-index: 10;
+        }
+
+        /* Score Badge */
+        #score-board {
+            position: absolute; top: -25px;
+            background: #ffca28; color: #e65100;
+            padding: 10px 25px; border-radius: 25px;
+            font-size: 26px; font-weight: bold;
+            box-shadow: 0 6px 0 #ff8f00; border: 4px solid #fff;
+            transition: transform 0.2s;
+        }
+
+        .pop-score { transform: scale(1.2); color: #bf360c !important; }
+
+        /* Streak Banner */
+        #streak-banner {
+            position: absolute; top: 40%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: #ff5252; color: white;
+            padding: 15px 40px; border-radius: 50px;
+            font-size: 35px; font-weight: bold;
+            box-shadow: 0 10px 25px rgba(255, 82, 82, 0.5);
+            border: 4px solid #fff; z-index: 50;
+            pointer-events: none; opacity: 0;
+        }
+
+        .show-streak { animation: roll-anim 2s ease-in-out forwards; }
+
+        @keyframes roll-anim {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            15% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            30% { transform: translate(-50%, -50%) scale(1) rotate(-5deg); }
+            45% { transform: translate(-50%, -50%) scale(1) rotate(5deg); }
+            60% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+
+        /* The Question Display */
+        #question-display {
+            background-color: #e3f2fd; border: 4px dashed #64b5f6; border-radius: 15px;
+            padding: 15px 30px; font-size: 45px; font-weight: bold; color: #1565c0;
+            box-shadow: inset 0 0 20px rgba(100, 181, 246, 0.2);
+            transition: transform 0.2s;
+        }
+
+        .bounce { animation: bounce-anim 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        
+        @keyframes bounce-anim {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* The Options Cards */
+        .cards-container {
+            display: flex; gap: 30px; justify-content: center; width: 100%;
+        }
+
+        .action-card {
+            background: #ffffff; 
+            border: 4px solid #81c784; border-radius: 20px;
+            width: 200px; height: 220px; 
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; box-shadow: 0 8px 0 #81c784;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative; overflow: hidden;
+        }
+
+        .action-card:hover { transform: translateY(-4px); box-shadow: 0 12px 0 #81c784; }
+        .action-card:active { transform: translateY(8px); box-shadow: 0 0px 0 #81c784; }
+
+        /* The visual element inside the card */
+        .card-visual {
+            font-size: 60px; /* Default size */
+            transition: all 0.3s;
+            text-align: center;
+            line-height: 1.2;
+            padding: 10px;
+        }
+
+        /* Incorrect Guess Animation */
+        .wrong-guess {
+            background-color: #ffebee !important; border-color: #ef5350 !important; 
+            box-shadow: 0 4px 0 #ef5350 !important; transform: translateY(4px) !important;
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Correct Guess Animation */
+        .correct-guess {
+            background-color: #e8f5e9 !important; border-color: #66bb6a !important; 
+            box-shadow: 0 4px 0 #66bb6a !important; transform: scale(1.1) !important; z-index: 5;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 4px, 0); }
+            20%, 80% { transform: translate3d(4px, 4px, 0); }
+            30%, 50%, 70% { transform: translate3d(-8px, 4px, 0); }
+            40%, 60% { transform: translate3d(8px, 4px, 0); }
+        }
+
+        /* Feedback Area */
+        #feedback-area { min-height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+        #feedback-text {
+            font-size: 40px; font-weight: bold; color: #2e7d32;
+            opacity: 0; transition: opacity 0.2s, transform 0.2s;
+            transform: scale(0.5); text-shadow: 2px 2px 0px #e8f5e9;
+        }
+
+        .show-feedback { opacity: 1 !important; transform: scale(1) !important; }
+
+        /* Restart Button */
+        #restart-btn {
+            background-color: #42a5f5; color: white; border: none; border-radius: 15px;
+            padding: 15px 40px; font-size: 24px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 6px 0 #1e88e5; display: none; margin-top: 20px;
+        }
+        #restart-btn:active { transform: translateY(6px); box-shadow: 0 0px 0 #1e88e5; }
+
+        /* Confetti */
+        #confetti-svg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        .particle { transition: all 1s cubic-bezier(0.1, 0.8, 0.3, 1); }
+
+        @media (max-width: 500px) {
+            .cards-container { flex-direction: column; align-items: center; }
+            .action-card { width: 100%; height: 150px; }
+            #question-display { font-size: 30px; padding: 10px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🕵️ Reading Detective 🕵️</h1>
+    <p>Read the question and click the right picture!</p>
+
+    <div class="game-board">
+        <div id="score-board">⭐ Score: <span id="score-val">0</span> / 50</div>
+        
+        <div id="streak-banner">🔥 You're on a roll! 🔥</div>
+
+        <div id="question-display">Who is bigger?</div>
+
+        <div class="cards-container" id="cards">
+            </div>
+
+        <div id="feedback-area">
+            <div id="feedback-text">Awesome! 🌟</div>
+            <button id="restart-btn" onclick="resetGame()">Play Again 🔄</button>
+        </div>
+    </div>
+    
+    <svg id="confetti-svg"></svg>
+
+<script>
+    const cardsContainer = document.getElementById('cards');
+    const questionDisplay = document.getElementById('question-display');
+    const feedbackText = document.getElementById('feedback-text');
+    const scoreVal = document.getElementById('score-val');
+    const scoreBoard = document.getElementById('score-board');
+    const streakBanner = document.getElementById('streak-banner');
+    const restartBtn = document.getElementById('restart-btn');
+    const confettiSvg = document.getElementById('confetti-svg');
+
+    // Fun, distinct emojis
+    const items = ["🐶", "🐱", "🐻", "🐷", "🐸", "🐵", "🦊", "🐯", "🍎", "🚗", "🚀", "🍕"];
+
+    let isWaitingForNext = false;
+    let isShaking = false; 
+    let score = 0;
+    let currentStreak = 0;
+    let targetStreak = getRandomStreakTarget();
+
+    window.onload = startRound;
+
+    function getRandomStreakTarget() {
+        return Math.floor(Math.random() * 4) + 4; // 4 to 7
+    }
+
+    function resetGame() {
+        score = 0;
+        currentStreak = 0;
+        targetStreak = getRandomStreakTarget();
+        scoreVal.innerText = score;
+        restartBtn.style.display = 'none';
+        questionDisplay.style.display = 'block';
+        feedbackText.innerText = "Awesome! 🌟";
+        startRound();
+    }
+
+    // --- SCENARIO GENERATORS ---
+    // These functions programmatically generate the logic puzzle and the CSS rules to match it
+    
+    function generateSizeScenario() {
+        const item1 = items[Math.floor(Math.random() * items.length)];
+        let item2; do { item2 = items[Math.floor(Math.random() * items.length)] } while(item1===item2);
+
+        const askBigger = Math.random() > 0.5;
+        const leftIsBig = Math.random() > 0.5;
+
+        return {
+            question: askBigger ? "Who is bigger?" : "Who is smaller?",
+            cards: [
+                { visual: item1, style: `font-size: ${leftIsBig ? '120px' : '40px'}`, isCorrect: askBigger ? leftIsBig : !leftIsBig },
+                { visual: item2, style: `font-size: ${!leftIsBig ? '120px' : '40px'}`, isCorrect: askBigger ? !leftIsBig : leftIsBig }
+            ]
+        };
+    }
+
+    function generateHeightScenario() {
+        const item1 = items[Math.floor(Math.random() * items.length)];
+        let item2; do { item2 = items[Math.floor(Math.random() * items.length)] } while(item1===item2);
+
+        const askHigher = Math.random() > 0.5;
+        const leftIsHigh = Math.random() > 0.5;
+
+        return {
+            question: askHigher ? "Who is higher?" : "Who is lower?",
+            cards: [
+                { visual: item1, style: `transform: translateY(${leftIsHigh ? '-50px' : '50px'})`, isCorrect: askHigher ? leftIsHigh : !leftIsHigh },
+                { visual: item2, style: `transform: translateY(${!leftIsHigh ? '-50px' : '50px'})`, isCorrect: askHigher ? !leftIsHigh : leftIsHigh }
+            ]
+        };
+    }
+
+    function generateQuantityScenario() {
+        const item = items[Math.floor(Math.random() * items.length)];
+        const askMore = Math.random() > 0.5;
+        const leftHasMore = Math.random() > 0.5;
+        
+        const amountMany = Math.floor(Math.random() * 3) + 3; // 3 to 5 items
+        const amountFew = Math.floor(Math.random() * 2) + 1;  // 1 to 2 items
+
+        // Create a string of emojis separated by spaces so they wrap nicely in the box
+        const visLeft = Array(leftHasMore ? amountMany : amountFew).fill(item).join(" ");
+        const visRight = Array(!leftHasMore ? amountMany : amountFew).fill(item).join(" ");
+
+        return {
+            question: askMore ? "Who has more?" : "Who has less?",
+            cards: [
+                { visual: visLeft, style: 'font-size: 40px; letter-spacing: 2px;', isCorrect: askMore ? leftHasMore : !leftHasMore },
+                { visual: visRight, style: 'font-size: 40px; letter-spacing: 2px;', isCorrect: askMore ? !leftHasMore : leftHasMore }
+            ]
+        };
+    }
+
+    // Array of our scenario engines
+    const scenarioEngines = [generateSizeScenario, generateHeightScenario, generateQuantityScenario];
+
+    function startRound() {
+        isWaitingForNext = false;
+        isShaking = false;
+        cardsContainer.innerHTML = '';
+        confettiSvg.innerHTML = '';
+        feedbackText.classList.remove('show-feedback');
+        
+        questionDisplay.classList.remove('bounce');
+        void questionDisplay.offsetWidth; 
+        questionDisplay.classList.add('bounce');
+
+        // 1. Pick a random scenario type and generate the puzzle
+        const generatePuzzle = scenarioEngines[Math.floor(Math.random() * scenarioEngines.length)];
+        const puzzleData = generatePuzzle();
+
+        // 2. Update Question Text
+        questionDisplay.innerText = puzzleData.question;
+
+        // 3. Create the Cards
+        puzzleData.cards.forEach(cardData => {
+            const card = document.createElement('div');
+            card.className = 'action-card';
+            
+            const visualWrapper = document.createElement('div');
+            visualWrapper.className = 'card-visual';
+            visualWrapper.innerText = cardData.visual;
+            visualWrapper.style.cssText = cardData.style; // Inject the programmatic CSS
+
+            card.appendChild(visualWrapper);
+            card.onclick = () => handleGuess(card, cardData.isCorrect);
+            cardsContainer.appendChild(card);
+        });
+    }
+
+    function handleGuess(cardElement, isCorrect) {
+        if (isWaitingForNext || isShaking) return;
+
+        if (isCorrect) {
+            // --- CORRECT GUESS ---
+            isWaitingForNext = true;
+            cardElement.classList.add('correct-guess');
+            
+            Array.from(cardsContainer.children).forEach(child => {
+                if (child !== cardElement) child.style.opacity = '0.3';
+            });
+
+            score++;
+            currentStreak++;
+            scoreVal.innerText = score;
+            
+            scoreBoard.classList.add('pop-score');
+            setTimeout(() => scoreBoard.classList.remove('pop-score'), 300);
+
+            feedbackText.classList.add('show-feedback');
+            fireConfetti();
+
+            if (score >= 50) {
+                triggerWin();
+                return; 
+            }
+
+            let delayNextRound = 1000; 
+
+            if (currentStreak === targetStreak) {
+                streakBanner.classList.add('show-streak');
+                setTimeout(() => streakBanner.classList.remove('show-streak'), 2000);
+                
+                currentStreak = 0;
+                targetStreak = getRandomStreakTarget();
+                delayNextRound = 2200; 
+            }
+
+            setTimeout(startRound, delayNextRound);
+
+        } else {
+            // --- INCORRECT GUESS ---
+            isShaking = true;
+            currentStreak = 0; 
+            targetStreak = getRandomStreakTarget(); 
+            
+            cardElement.classList.add('wrong-guess');
+            
+            setTimeout(() => {
+                cardElement.classList.remove('wrong-guess');
+                isShaking = false;
+            }, 500);
+        }
+    }
+
+    function triggerWin() {
+        cardsContainer.innerHTML = '';
+        questionDisplay.style.display = 'none';
+        
+        feedbackText.innerText = "🏆 YOU WIN! 🏆";
+        feedbackText.style.fontSize = "60px";
+        feedbackText.classList.add('show-feedback');
+        
+        restartBtn.style.display = 'block';
+        fireConfetti(true);
+    }
+
+    function fireConfetti(isMassive = false) {
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const colors = ['#81c784', '#64b5f6', '#ffb74d', '#ff0000', '#ffeb3b'];
+        
+        const particleCount = isMassive ? 150 : 40;
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            particle.setAttribute("cx", centerX);
+            particle.setAttribute("cy", centerY);
+            particle.setAttribute("r", Math.random() * 6 + 4);
+            particle.setAttribute("class", "particle");
+            particle.style.fill = colors[Math.floor(Math.random() * colors.length)];
+            confettiSvg.appendChild(particle);
+            
+            particle.getBoundingClientRect(); 
+            
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * (isMassive ? 800 : 400) + 100; 
+            
+            particle.setAttribute("cx", centerX + Math.cos(angle) * distance);
+            particle.setAttribute("cy", centerY + Math.sin(angle) * distance + (isMassive ? 200 : 150));
+            particle.style.opacity = "0";
+            
+            setTimeout(() => particle.remove(), 1500);
+        }
+    }
+</script>
+</body>
+</html>

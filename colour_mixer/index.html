@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kids Color Mixer & Painter</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+            overflow: hidden; 
+            touch-action: none; /* Crucial for touch screens */
+        }
+
+        /* Top control panel */
+        #ui-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100; /* Keeps UI on top of everything */
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+
+        button, label {
+            font-size: 16px;
+            font-family: inherit;
+            cursor: pointer;
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 2px solid #ccc;
+            background: white;
+            user-select: none;
+        }
+
+        button:active {
+            background: #e0e0e0;
+        }
+
+        #trail-toggle {
+            transform: scale(1.3);
+            margin-right: 8px;
+        }
+
+        /* Layered canvases for drawing */
+        #canvas-layers {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #ffffff;
+        }
+
+        #canvas-layers canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none; /* Lets you click through to the blobs */
+            mix-blend-mode: multiply; /* The paint-mixing magic */
+        }
+
+        /* The smaller draggable blobs */
+        #blobs-area {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none; 
+        }
+
+        .color-blob {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            position: absolute;
+            cursor: grab;
+            pointer-events: auto; /* Re-enables clicking on the blobs */
+            mix-blend-mode: multiply; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+
+        .color-blob:active {
+            cursor: grabbing;
+            transform: scale(1.15);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-bar">
+        <label>
+            <input type="checkbox" id="trail-toggle"> 
+            <strong>Draw Trails</strong>
+        </label>
+        <button id="clear-btn">Clear Drawing</button>
+        <button id="reset-btn">Reset Blobs</button>
+    </div>
+
+    <div id="canvas-layers"></div>
+    
+    <div id="blobs-area"></div>
+
+    <script>
+        // Our color palette
+        const colors = [
+            { id: 'cyan', hex: '#00FFFF' },
+            { id: 'magenta', hex: '#FF00FF' },
+            { id: 'yellow', hex: '#FFFF00' },
+            { id: 'red', hex: '#FF0000' },
+            { id: 'green', hex: '#00FF00' },
+            { id: 'blue', hex: '#0000FF' },
+            { id: 'orange', hex: '#FFA500' },
+            { id: 'purple', hex: '#800080' },
+            { id: 'pink', hex: '#FFC0CB' }
+        ];
+
+        const layersContainer = document.getElementById('canvas-layers');
+        const blobsContainer = document.getElementById('blobs-area');
+        
+        // Dictionaries to store our active elements
+        const contexts = {};
+        const blobElements = {};
+
+        // App Initialization
+        function init() {
+            colors.forEach((c, index) => {
+                // 1. Create a canvas layer for this specific color
+                const canvas = document.createElement('canvas');
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                layersContainer.appendChild(canvas);
+                
+                const ctx = canvas.getContext('2d');
+                setupCanvasContext(ctx, c.hex);
+                contexts[c.id] = ctx;
+
+                // 2. Create the draggable blob
+                const blob = document.createElement('div');
+                blob.className = 'color-blob';
+                blob.id = c.id;
+                blob.style.backgroundColor = c.hex;
+                
+                resetBlobPosition(blob, index);
+                blobsContainer.appendChild(blob);
+                blobElements[c.id] = blob;
+
+                // 3. Attach drag events
+                blob.addEventListener('mousedown', startDrag);
+                blob.addEventListener('touchstart', startDrag, {passive: false});
+            });
+        }
+
+        function setupCanvasContext(ctx, colorHex) {
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 60; // Matches the blob size
+            ctx.strokeStyle = colorHex;
+        }
+
+        function resetBlobPosition(blob, index) {
+            const startX = 20;
+            const startY = 80; // Pushed down to avoid the UI bar
+            const col = index % 3;
+            const row = Math.floor(index / 3);
+            
+            // Layout in a neat 3x3 grid on the left
+            blob.style.left = `${startX + (col * 70)}px`;
+            blob.style.top = `${startY + (row * 70)}px`;
+        }
+
+        // --- Dragging & Drawing Logic ---
+        let activeBlobId = null;
+        let offsetX = 0, offsetY = 0;
+        let lastX = 0, lastY = 0;
+
+        function startDrag(e) {
+            const blob = e.target;
+            activeBlobId = blob.id;
+            
+            // Bring the active blob to the front
+            Object.values(blobElements).forEach(b => b.style.zIndex = 1);
+            blob.style.zIndex = 10;
+
+            const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+
+            const rect = blob.getBoundingClientRect();
+            offsetX = clientX - rect.left;
+            offsetY = clientY - rect.top;
+
+            // Calculate the center point for drawing
+            lastX = clientX - offsetX + 30; // 30 is half the 60px width
+            lastY = clientY - offsetY + 30; 
+        }
+
+        function drag(e) {
+            if (!activeBlobId) return;
+            e.preventDefault(); 
+
+            const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+
+            const blob = blobElements[activeBlobId];
+            const newLeft = clientX - offsetX;
+            const newTop = clientY - offsetY;
+
+            // Move the blob
+            blob.style.left = `${newLeft}px`;
+            blob.style.top = `${newTop}px`;
+
+            // Draw the trail if the checkbox is checked
+            const isTrailsOn = document.getElementById('trail-toggle').checked;
+            if (isTrailsOn) {
+                const currentX = newLeft + 30; // Center X
+                const currentY = newTop + 30;  // Center Y
+                
+                const ctx = contexts[activeBlobId];
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(currentX, currentY);
+                ctx.stroke();
+
+                lastX = currentX;
+                lastY = currentY;
+            }
+        }
+
+        function endDrag() {
+            activeBlobId = null;
+        }
+
+        // --- Event Listeners ---
+        window.addEventListener('mousemove', drag);
+        window.addEventListener('mouseup', endDrag);
+        window.addEventListener('touchmove', drag, {passive: false});
+        window.addEventListener('touchend', endDrag);
+
+        // UI Buttons
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            Object.values(contexts).forEach(ctx => {
+                ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            });
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            Object.values(blobElements).forEach((blob, index) => {
+                resetBlobPosition(blob, index);
+            });
+        });
+
+        // Handle window resizing (like rotating an iPad)
+        window.addEventListener('resize', () => {
+            colors.forEach(c => {
+                const canvas = contexts[c.id].canvas;
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                // Re-apply drawing styles after resizing
+                setupCanvasContext(contexts[c.id], c.hex); 
+            });
+        });
+
+        // Start the app!
+        init();
+    </script>
+</body>
+</html>
