@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentence Architect: Master</title>
+    <style>
+        body { 
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #e0f2f1; padding: 20px; color: #004d40;
+            margin: 0; overflow-x: hidden; text-align: center;
+        }
+        
+        h1 { color: #00796b; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; }
+        p { font-size: 20px; color: #00897b; font-weight: bold; margin-top: 0; margin-bottom: 20px;}
+
+        .game-board {
+            background: white; padding: 30px; border-radius: 25px; 
+            border: 4px solid #80cbc4; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%; max-width: 900px; display: flex; flex-direction: column; align-items: center; gap: 20px;
+            position: relative; z-index: 10;
+        }
+
+        #score-board {
+            position: absolute; top: -25px; background: #ffb300; color: white;
+            padding: 10px 25px; border-radius: 25px; font-size: 24px; font-weight: bold;
+            box-shadow: 0 6px 0 #ff8f00; border: 4px solid #fff; transition: transform 0.2s;
+        }
+        .pop-score { transform: scale(1.2); background: #ffca28 !important; }
+
+        /* The Context Question */
+        #question-display {
+            background-color: #e8f5e9; border: 3px dashed #81c784; border-radius: 15px;
+            padding: 15px 30px; font-size: 28px; font-weight: bold; color: #2e7d32;
+            width: 90%;
+        }
+
+        /* The Visual Scene */
+        #scene-display {
+            background: linear-gradient(to bottom, #e1f5fe 60%, #c8e6c9 40%);
+            border: 4px solid #b3e5fc; border-radius: 20px; width: 100%; max-width: 500px;
+            height: 180px; display: flex; justify-content: center; align-items: center;
+            font-size: 80px; gap: 20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+            transition: all 0.3s; user-select: none;
+        }
+
+        /* The Sentence Builder Area */
+        #sentence-strip {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+            background: #f5f5f5; border: 3px solid #e0e0e0; border-radius: 15px;
+            padding: 20px; width: 100%; min-height: 60px; box-sizing: border-box;
+        }
+
+        .word-slot {
+            height: 50px; min-width: 100px; border: 3px dashed #bdbdbd; border-radius: 10px;
+            display: flex; justify-content: center; align-items: center;
+            transition: 0.2s; background: #fafafa; position: relative;
+        }
+
+        /* Words */
+        .word-block {
+            background: #ffffff; color: #00695c; border: 3px solid #4db6ac;
+            padding: 10px 20px; font-size: 24px; font-weight: bold; border-radius: 12px;
+            box-shadow: 0 5px 0 #4db6ac; cursor: grab; transition: transform 0.1s;
+            user-select: none; touch-action: none; display: flex; align-items: center; gap: 10px;
+            position: relative; z-index: 5; background-color: #ffffff;
+        }
+
+        .word-block:active { cursor: grabbing; }
+        
+        .word-block.placed {
+            background: #e0f2f1; color: #004d40; border-color: #26a69a;
+            box-shadow: 0 4px 0 #26a69a; width: 100%; box-sizing: border-box;
+            justify-content: space-between; 
+        }
+
+        /* The Delete Button */
+        .delete-btn {
+            background: rgba(0,0,0,0.1); color: #c62828; border-radius: 50%;
+            width: 25px; height: 25px; display: flex; justify-content: center; align-items: center;
+            font-size: 16px; cursor: pointer; transition: 0.2s; margin-left: 10px;
+        }
+        .delete-btn:hover { background: #ef5350; color: white; }
+
+        /* The Word Bank */
+        #word-bank {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 15px;
+            width: 100%; padding: 15px; background: #eceff1; border-radius: 15px; box-sizing: border-box;
+        }
+
+        /* Buttons */
+        .btn-row { display: flex; gap: 15px; margin-top: 10px; }
+
+        .game-btn {
+            color: white; border: none; border-radius: 15px;
+            padding: 15px 40px; font-size: 24px; font-weight: bold; cursor: pointer;
+            text-transform: uppercase; transition: 0.2s;
+        }
+
+        #submit-btn {
+            background-color: #26a69a; box-shadow: 0 6px 0 #00897b;
+            opacity: 0.5; pointer-events: none;
+        }
+        #submit-btn.ready { opacity: 1; pointer-events: auto; }
+        #submit-btn.ready:active { transform: translateY(6px); box-shadow: 0 0px 0 #00897b; }
+
+        #next-btn {
+            background-color: #ffb74d; box-shadow: 0 6px 0 #f57c00;
+            display: none; 
+        }
+        #next-btn:active { transform: translateY(6px); box-shadow: 0 0px 0 #f57c00; }
+
+        /* Ghost element for Dragging */
+        #drag-ghost {
+            position: fixed; pointer-events: none; z-index: 9999;
+            opacity: 0.9; transform: scale(1.1); display: none;
+            box-shadow: 0 15px 20px rgba(0,0,0,0.3) !important;
+        }
+
+        /* Animations & Feedback */
+        .wrong-shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both !important; border-color: #ef5350 !important; background: #ffebee !important; color: #c62828 !important;}
+        .correct-pulse { background-color: #e8f5e9 !important; border-color: #4caf50 !important; color: #2e7d32 !important; box-shadow: 0 0 15px #81c784 !important;}
+        @keyframes shake { 10%, 90% { transform: translate3d(-4px, 0, 0); } 20%, 80% { transform: translate3d(8px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-12px, 0, 0); } 40%, 60% { transform: translate3d(12px, 0, 0); } }
+
+        #feedback-text { font-size: 35px; font-weight: bold; color: #00796b; opacity: 0; transform: scale(0.5); transition: all 0.2s; margin-top: 10px;}
+        .show-feedback { opacity: 1 !important; transform: scale(1) !important; }
+
+        #confetti-svg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        .particle { transition: all 1s cubic-bezier(0.1, 0.8, 0.3, 1); }
+    </style>
+</head>
+<body>
+
+    <h1>🧱 Sentence Architect 🧱</h1>
+    <p>Read the question and build the exact answer!</p>
+
+    <div class="game-board">
+        <div id="score-board">⭐ Score: <span id="score-val">0</span></div>
+        
+        <div id="question-display">Loading...</div>
+        <div id="scene-display"></div>
+
+        <div id="sentence-strip"></div>
+        <div id="word-bank"></div>
+        
+        <div class="btn-row">
+            <button id="submit-btn" class="game-btn" onclick="checkSentence()">Check Answer ✓</button>
+            <button id="next-btn" class="game-btn" onclick="startRound()">Next Challenge ➡️</button>
+        </div>
+        
+        <div id="feedback-text">Excellent! 🌟</div>
+    </div>
+    
+    <div id="drag-ghost" class="word-block"></div>
+    <svg id="confetti-svg"></svg>
+
+<script>
+    let audioCtx;
+    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    function playTone(freq, type, duration) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = type; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+
+    const questionDisplay = document.getElementById('question-display');
+    const sceneDisplay = document.getElementById('scene-display');
+    const sentenceStrip = document.getElementById('sentence-strip');
+    const wordBank = document.getElementById('word-bank');
+    const submitBtn = document.getElementById('submit-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const feedbackText = document.getElementById('feedback-text');
+    const dragGhost = document.getElementById('drag-ghost');
+
+    // --- EXPANDED SCENARIOS ---
+    const scenarios = [
+        { scene: '🐶 🦴', question: 'What does the dog have?', expected: ['The', 'dog', 'has', 'a', 'bone'], distractors: ['cat', 'is'] },
+        { scene: '🐵 🍌', question: 'What is the monkey eating?', expected: ['The', 'monkey', 'eats', 'the', 'banana'], distractors: ['apple', 'sees'] },
+        { scene: '🚀 🌙', question: 'Where does the rocket fly?', expected: ['The', 'rocket', 'flies', 'to', 'space'], distractors: ['car', 'home'] },
+        { scene: '🌧️ ☂️', question: 'What stops the rain?', expected: ['The', 'umbrella', 'stops', 'the', 'rain'], distractors: ['sun', 'cold'] },
+        { scene: '🐷 🍎', question: 'Who has the red apple?', expected: ['The', 'pig', 'has', 'the', 'red', 'apple'], distractors: ['cow', 'eats'] },
+        { scene: '🦁 👑', question: 'Who is the king?', expected: ['The', 'lion', 'wears', "a", 'gold', 'crown'], distractors: ['bear', 'silver'] },
+        { scene: '🐸 🍃', question: 'Where is the frog?', expected: ['The', 'green', 'frog', 'sits', 'on', 'a', 'leaf'], distractors: ['rock', 'red'] },
+        { scene: '🐻 💤', question: 'What is the bear doing?', expected: ['The', 'big', 'bear', 'sleeps', 'in', 'the', 'cave'], distractors: ['small', 'runs'] },
+        { scene: '🐱 🐟', question: 'What does the cat want?', expected: ['The', 'cat', 'looks', 'at', 'the', 'fish'], distractors: ['dog', 'bird'] },
+        { scene: '🐢 🏁', question: 'Who wins the race?', expected: ['The', 'slow', 'turtle', 'wins', 'the', 'race'], distractors: ['fast', 'loses'] },
+        { scene: '🚒 🔥', question: 'What does the truck do?', expected: ['The', 'fire', 'truck', 'puts', 'out', 'the', 'fire'], distractors: ['car', 'starts'] },
+        { scene: '👽 🛸', question: 'Who drives the ship?', expected: ['The', 'alien', 'drives', 'the', 'space', 'ship'], distractors: ['robot', 'car'] },
+        { scene: '🐝 🌸', question: 'Where is the bee?', expected: ['The', 'bee', 'flies', 'to', 'the', 'pink', 'flower'], distractors: ['tree', 'blue'] },
+        { scene: '⛄ ☀️', question: 'What melts the snowman?', expected: ['The', 'hot', 'sun', 'melts', 'the', 'snowman'], distractors: ['cold', 'moon'] },
+        { scene: '🧙‍♂️ 📖', question: 'What does the wizard read?', expected: ['The', 'wizard', 'reads', 'a', 'magic', 'book'], distractors: ['knight', 'sword'] },
+        { scene: '🦇 🌙', question: 'When does the bat fly?', expected: ['The', 'bat', 'flies', 'in', 'the', 'dark', 'night'], distractors: ['bird', 'day'] },
+        { scene: '🐧 🧊', question: 'Where does the penguin stand?', expected: ['The', 'penguin', 'stands', 'on', 'the', 'cold', 'ice'], distractors: ['hot', 'sand'] },
+        { scene: '🐉 🏰', question: 'What does the dragon guard?', expected: ['The', 'dragon', 'guards', 'the', 'big', 'castle'], distractors: ['small', 'house'] },
+        { scene: '🐭 🧀', question: 'What does the mouse eat?', expected: ['The', 'mouse', 'eats', 'the', 'yellow', 'cheese'], distractors: ['cat', 'blue'] },
+        { scene: '👨‍🍳 🍕', question: 'What does the chef cook?', expected: ['The', 'chef', 'cooks', 'a', 'hot', 'pizza'], distractors: ['cold', 'burger'] },
+        { scene: '🕷️ 🕸️', question: 'What does the spider make?', expected: ['The', 'spider', 'makes', 'a', 'big', 'web'], distractors: ['bug', 'small'] }
+    ];
+
+    let score = 0;
+    let isWaitingForNext = false;
+    let currentScenario = null;
+    let currentBag = []; 
+    
+    let availableWords = []; 
+    let stripSlots = [];
+
+    window.onload = startRound;
+
+    function shuffle(array) { return array.sort(() => Math.random() - 0.5); }
+
+    function getNextScenario() {
+        if (currentBag.length === 0) currentBag = shuffle([...scenarios]);
+        return currentBag.pop();
+    }
+
+    function startRound() {
+        isWaitingForNext = false;
+        feedbackText.classList.remove('show-feedback');
+        submitBtn.classList.remove('ready');
+        submitBtn.style.display = 'block';
+        nextBtn.style.display = 'none';
+        
+        currentScenario = getNextScenario();
+        
+        stripSlots = new Array(currentScenario.expected.length).fill(null);
+        
+        // Grab expected words and mix in exactly 2 distractors
+        let distractors = shuffle(currentScenario.distractors).slice(0, 2);
+        let allWordsText = [...currentScenario.expected, ...distractors];
+        availableWords = shuffle(allWordsText).map((text, i) => ({ id: `w-${i}`, text: text }));
+
+        questionDisplay.innerText = currentScenario.question;
+        sceneDisplay.innerText = currentScenario.scene;
+
+        renderBoard();
+    }
+
+    function renderBoard() {
+        sentenceStrip.innerHTML = '';
+        stripSlots.forEach((wordObj, index) => {
+            let slot = document.createElement('div');
+            slot.className = 'word-slot';
+            slot.dataset.slotIndex = index;
+
+            if (wordObj) {
+                let block = createWordBlock(wordObj, 'strip', index);
+                slot.appendChild(block);
+                slot.style.border = 'none'; 
+            }
+            sentenceStrip.appendChild(slot);
+        });
+
+        wordBank.innerHTML = '';
+        availableWords.forEach(wordObj => {
+            let block = createWordBlock(wordObj, 'bank', null);
+            wordBank.appendChild(block);
+        });
+
+        if (stripSlots.every(slot => slot !== null)) {
+            submitBtn.classList.add('ready');
+        } else {
+            submitBtn.classList.remove('ready');
+        }
+    }
+
+    function createWordBlock(wordObj, location, slotIndex) {
+        let block = document.createElement('div');
+        block.className = `word-block ${location === 'strip' ? 'placed' : ''}`;
+        block.innerText = wordObj.text;
+        
+        block.dataset.id = wordObj.id;
+        block.dataset.location = location;
+        if (slotIndex !== null) block.dataset.slotIndex = slotIndex;
+
+        if (location === 'strip') {
+            let delBtn = document.createElement('div');
+            delBtn.className = 'delete-btn';
+            delBtn.innerText = '×';
+            delBtn.onpointerdown = (e) => {
+                e.stopPropagation(); 
+                if (!isWaitingForNext) moveToBank(slotIndex);
+            };
+            block.appendChild(delBtn);
+        }
+
+        block.onpointerdown = handlePointerDown;
+        return block;
+    }
+    
+    function clickToPlace(wordId) {
+        initAudio(); playTone(600, 'square', 0.05);
+        const emptyIndex = stripSlots.findIndex(slot => slot === null);
+        if (emptyIndex === -1) return; 
+
+        const wordIndex = availableWords.findIndex(w => w.id === wordId);
+        const wordObj = availableWords.splice(wordIndex, 1)[0];
+        
+        stripSlots[emptyIndex] = wordObj;
+        renderBoard();
+    }
+
+    function moveToBank(slotIndex) {
+        initAudio(); playTone(400, 'sawtooth', 0.05);
+        const wordObj = stripSlots[slotIndex];
+        stripSlots[slotIndex] = null;
+        availableWords.push(wordObj);
+        renderBoard();
+    }
+
+    function executeDrop(sourceLoc, sourceIndex, sourceId, targetSlotIndex) {
+        initAudio(); playTone(600, 'square', 0.05);
+
+        let draggedObj;
+
+        if (sourceLoc === 'bank') {
+            const wIdx = availableWords.findIndex(w => w.id === sourceId);
+            draggedObj = availableWords.splice(wIdx, 1)[0];
+        } else {
+            draggedObj = stripSlots[sourceIndex];
+            stripSlots[sourceIndex] = null;
+        }
+
+        let existingObjInTarget = stripSlots[targetSlotIndex];
+        stripSlots[targetSlotIndex] = draggedObj;
+
+        if (existingObjInTarget) {
+            if (sourceLoc === 'strip') {
+                stripSlots[sourceIndex] = existingObjInTarget;
+            } else {
+                availableWords.push(existingObjInTarget);
+            }
+        }
+        renderBoard();
+    }
+
+    // --- PHYSICS ---
+    let dragData = null;
+
+    function handlePointerDown(e) {
+        if (isWaitingForNext) return;
+        if (e.target.classList.contains('delete-btn')) return; 
+
+        const block = e.currentTarget;
+        
+        dragData = {
+            id: block.dataset.id,
+            location: block.dataset.location,
+            slotIndex: block.dataset.slotIndex ? parseInt(block.dataset.slotIndex) : null,
+            startX: e.clientX,
+            startY: e.clientY,
+            hasMoved: false,
+            originalElement: block
+        };
+
+        dragGhost.innerText = block.childNodes[0].nodeValue; 
+        dragGhost.className = `word-block placed`;
+        dragGhost.style.display = 'flex';
+        
+        const rect = block.getBoundingClientRect();
+        dragGhost.style.width = `${rect.width}px`;
+        dragGhost.style.left = `${e.clientX - (rect.width/2)}px`;
+        dragGhost.style.top = `${e.clientY - (rect.height/2)}px`;
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+        
+        e.preventDefault(); 
+    }
+
+    function handlePointerMove(e) {
+        if (!dragData) return;
+        
+        if (Math.abs(e.clientX - dragData.startX) > 5 || Math.abs(e.clientY - dragData.startY) > 5) {
+            dragData.hasMoved = true;
+            dragData.originalElement.style.opacity = '0.3'; 
+            
+            const rect = dragGhost.getBoundingClientRect();
+            dragGhost.style.left = `${e.clientX - (rect.width/2)}px`;
+            dragGhost.style.top = `${e.clientY - (rect.height/2)}px`;
+        }
+    }
+
+    function handlePointerUp(e) {
+        if (!dragData) return;
+        
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+        
+        dragGhost.style.display = 'none';
+        dragData.originalElement.style.opacity = '1';
+
+        if (!dragData.hasMoved) {
+            if (dragData.location === 'bank') clickToPlace(dragData.id);
+            dragData = null;
+            return;
+        }
+
+        const elementUnderCursor = document.elementFromPoint(e.clientX, e.clientY);
+        let targetSlot = elementUnderCursor ? elementUnderCursor.closest('.word-slot') : null;
+        
+        if (targetSlot) {
+            let targetIndex = parseInt(targetSlot.dataset.slotIndex);
+            executeDrop(dragData.location, dragData.slotIndex, dragData.id, targetIndex);
+        } else if (dragData.location === 'strip') {
+            moveToBank(dragData.slotIndex);
+        }
+
+        dragData = null;
+    }
+
+    function checkSentence() {
+        if (isWaitingForNext || stripSlots.includes(null)) return;
+        
+        let isCorrect = true;
+        const slots = document.querySelectorAll('.word-slot');
+
+        stripSlots.forEach((wordObj, index) => {
+            const placedWordEl = slots[index].querySelector('.word-block');
+            
+            if (wordObj.text !== currentScenario.expected[index]) {
+                isCorrect = false;
+                placedWordEl.classList.add('wrong-shake');
+                setTimeout(() => placedWordEl.classList.remove('wrong-shake'), 400);
+            } else {
+                placedWordEl.classList.add('correct-pulse');
+            }
+        });
+
+        if (isCorrect) {
+            handleWin();
+        } else {
+            initAudio(); playTone(200, 'sawtooth', 0.3);
+            submitBtn.classList.remove('ready'); 
+            setTimeout(() => { submitBtn.classList.add('ready'); }, 500);
+        }
+    }
+
+    function handleWin() {
+        isWaitingForNext = true;
+        submitBtn.style.display = 'none'; // Hide submit button
+        nextBtn.style.display = 'block'; // Show next button
+        
+        initAudio();
+        playTone(400, 'sine', 0.1); setTimeout(() => playTone(600, 'sine', 0.1), 100); setTimeout(() => playTone(800, 'sine', 0.4), 200);
+
+        score++;
+        document.getElementById('score-val').innerText = score;
+        document.getElementById('score-board').classList.add('pop-score');
+        setTimeout(() => document.getElementById('score-board').classList.remove('pop-score'), 300);
+
+        feedbackText.classList.add('show-feedback');
+        fireConfetti();
+    }
+
+    function fireConfetti() {
+        const cx = window.innerWidth / 2; const cy = window.innerHeight / 2;
+        const colors = ['#4db6ac', '#81c784', '#ffca28', '#29b6f6'];
+        
+        for (let i = 0; i < 60; i++) {
+            const p = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            p.setAttribute("cx", cx); p.setAttribute("cy", cy);
+            p.setAttribute("r", Math.random() * 6 + 4); p.setAttribute("class", "particle");
+            p.style.fill = colors[Math.floor(Math.random() * colors.length)];
+            confettiSvg.appendChild(p);
+            
+            p.getBoundingClientRect(); 
+            const angle = Math.random() * Math.PI * 2; const distance = Math.random() * 400 + 100; 
+            
+            p.setAttribute("cx", cx + Math.cos(angle) * distance);
+            p.setAttribute("cy", cy + Math.sin(angle) * distance + 150);
+            p.style.opacity = "0";
+            
+            setTimeout(() => p.remove(), 1500);
+        }
+    }
+</script>
+</body>
+</html>

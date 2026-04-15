@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Geometric Mosaic: Irregular</title>
+    <style>
+        body { 
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background-color: #f3e5f5; padding: 10px; color: #4a148c;
+            margin: 0; height: 100vh; box-sizing: border-box; overflow: hidden;
+            text-align: center;
+        }
+        
+        h1 { color: #8e24aa; font-size: 2rem; text-shadow: 1px 1px 0px #fff; margin: 0; }
+        p { font-size: 16px; color: #ab47bc; font-weight: bold; margin: 5px 0 10px 0;}
+
+        .game-board {
+            background: white; padding: 15px; border-radius: 20px; 
+            border: 4px solid #e1bee7; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%; max-width: 1200px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+            position: relative; z-index: 10; flex-grow: 1; max-height: 95vh; box-sizing: border-box;
+        }
+
+        #scoreboard {
+            position: absolute; top: -20px; background: #ffca28; color: #e65100;
+            padding: 5px 20px; border-radius: 20px; font-size: 20px; font-weight: bold;
+            box-shadow: 0 4px 0 #ff8f00; border: 4px solid #fff; z-index: 11;
+        }
+
+        .controls {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+            background: #f3e5f5; padding: 10px; border-radius: 12px; width: 100%; box-sizing: border-box;
+        }
+
+        .shape-btn {
+            background: #ffffff; color: #6a1b9a; border: 3px solid #ce93d8; border-radius: 10px;
+            padding: 8px 15px; font-size: 16px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 0 #ce93d8; transition: all 0.1s;
+        }
+        .shape-btn:active, .shape-btn.active { 
+            transform: translateY(4px); box-shadow: 0 0px 0 #ce93d8; 
+            background: #ea80fc; border-color: #ab47bc; color: #fff;
+        }
+
+        #task-display {
+            background-color: #e8f5e9; border: 3px dashed #66bb6a; border-radius: 12px;
+            padding: 10px 20px; font-size: 22px; font-weight: bold; color: #1b5e20;
+            width: 60%; margin: 0;
+        }
+
+        #game-svg {
+            width: 100%; flex-grow: 1; max-height: calc(100vh - 200px);
+            background: #fafafa; border: 4px solid #e0e0e0; border-radius: 20px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+            touch-action: none; 
+            user-select: none;
+            object-fit: contain; 
+        }
+
+        .puzzle-hole {
+            fill: rgba(186, 104, 200, 0.05);
+            stroke: #ce93d8; stroke-width: 3; stroke-dasharray: 8, 8;
+            stroke-linejoin: round; transition: fill 0.3s;
+            cursor: pointer; 
+        }
+        .puzzle-hole:hover { fill: rgba(186, 104, 200, 0.15); }
+        .puzzle-hole.filled { 
+            fill: rgba(129, 199, 132, 0.2); stroke: #81c784; stroke-dasharray: none; stroke-width: 4; 
+            pointer-events: none; 
+        }
+
+        .puzzle-piece {
+            fill: #7e57c2; stroke: #fff; stroke-width: 3; stroke-linejoin: round;
+            cursor: grab; filter: drop-shadow(0 4px 5px rgba(0,0,0,0.2));
+            transition: opacity 0.2s, fill 0.2s;
+        }
+        .puzzle-piece:hover { fill: #9575cd; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.3)); }
+        
+        .is-dragging .puzzle-piece { cursor: grabbing; fill: #6a1b9a; filter: drop-shadow(0 15px 15px rgba(0,0,0,0.4)); }
+        
+        .is-selected .puzzle-piece {
+            fill: #ea80fc !important; stroke: #ffca28 !important; stroke-width: 5 !important;
+            filter: drop-shadow(0 0 15px rgba(255, 202, 40, 0.8)) !important;
+        }
+
+        .snapped .puzzle-piece {
+            fill: #66bb6a !important; stroke: #fff !important; cursor: default !important;
+            filter: none !important; stroke-width: 3 !important;
+        }
+        .snapped { pointer-events: none; }
+
+        #feedback-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: none;}
+        
+        #next-puzzle-btn {
+            background-color: #ffb74d; color: white; border: none; border-radius: 15px;
+            padding: 20px 50px; font-size: 30px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 8px 0 #f57c00; display: none; pointer-events: auto;
+            animation: pop-in 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        }
+        #next-puzzle-btn:active { transform: translateY(8px); box-shadow: 0 0px 0 #f57c00; }
+
+        @keyframes pop-in { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+
+        #confetti-svg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        .particle { transition: all 1s cubic-bezier(0.1, 0.8, 0.3, 1); }
+
+    </style>
+</head>
+<body>
+
+    <h1>🧩 The Geometric Mosaic 🧩</h1>
+    <p>Drag irregular pieces from the sides, OR click a piece then click its matching hole!</p>
+
+    <div class="game-board">
+        <div id="scoreboard">Filled: <span id="filled-count">0</span> / <span id="total-count">0</span></div>
+        
+        <div class="controls">
+            <button class="shape-btn" onclick="buildNewMosaic(3)">Triangle</button>
+            <button class="shape-btn" onclick="buildNewMosaic(4)">Quadrilateral</button>
+            <button class="shape-btn" onclick="buildNewMosaic(5)">Pentagon</button>
+            <button class="shape-btn" onclick="buildNewMosaic(6)">Hexagon</button>
+            <button class="shape-btn" onclick="buildNewMosaic(7)">Heptagon</button>
+            <button class="shape-btn" onclick="buildNewMosaic(8)">Octagon</button>
+        </div>
+
+        <div id="task-display">Build the Octagon Mosaic!</div>
+
+        <svg id="game-svg" viewBox="0 0 1400 700" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f0f0f0" stroke-width="2"/>
+                </pattern>
+            </defs>
+
+            <rect x="250" y="0" width="900" height="700" fill="url(#grid)" />
+            
+            <rect x="0" y="0" width="250" height="700" fill="#e0f2f1" stroke="#b2dfdb" stroke-width="4"/>
+            <text x="125" y="30" font-family="sans-serif" font-size="20" fill="#00897b" text-anchor="middle" font-weight="bold">PIECES</text>
+
+            <rect x="1150" y="0" width="250" height="700" fill="#e0f2f1" stroke="#b2dfdb" stroke-width="4"/>
+            <text x="1275" y="30" font-family="sans-serif" font-size="20" fill="#00897b" text-anchor="middle" font-weight="bold">PIECES</text>
+
+            <g id="holes-layer"></g>
+            <g id="pieces-layer"></g>
+        </svg>
+
+        <div id="feedback-area">
+            <button id="next-puzzle-btn" onclick="buildNewMosaic('random')">Play Again ➡️</button>
+        </div>
+    </div>
+    
+    <svg id="confetti-svg"></svg>
+
+<script>
+    let audioCtx;
+    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    function playTone(freq, type, duration) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = type; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+    function playSnap() { playTone(800, 'sine', 0.1); setTimeout(()=> playTone(1000, 'sine', 0.1), 80); }
+    function playGrab() { playTone(400, 'triangle', 0.1); }
+    function playSelect() { playTone(600, 'square', 0.05); }
+    function playError() { playTone(200, 'sawtooth', 0.15); }
+
+    const gameSvg = document.getElementById('game-svg');
+    const holesLayer = document.getElementById('holes-layer');
+    const piecesLayer = document.getElementById('pieces-layer');
+    const taskDisplay = document.getElementById('task-display');
+    const filledCountEl = document.getElementById('filled-count');
+    const totalCountEl = document.getElementById('total-count');
+    const nextPuzzleBtn = document.getElementById('next-puzzle-btn');
+    const confettiSvg = document.getElementById('confetti-svg');
+
+    const shapeDictionary = { 3: "Triangle", 4: "Quadrilateral", 5: "Pentagon", 6: "Hexagon", 7: "Heptagon", 8: "Octagon" };
+
+    // Game State
+    let currentHoles = []; 
+    let filledHolesCount = 0;
+    let dragData = null; 
+    let selectedPieceEl = null; 
+    let currentBaseShapeSides = 8;
+
+    window.onload = () => buildNewMosaic(8);
+
+    function shuffle(array) { return array.sort(() => Math.random() - 0.5); }
+
+    function getMousePosition(evt) {
+        const CTM = gameSvg.getScreenCTM();
+        if (evt.touches) evt = evt.touches[0]; 
+        return {
+            x: (evt.clientX - CTM.e) / CTM.a,
+            y: (evt.clientY - CTM.f) / CTM.d
+        };
+    }
+
+    // UPDATED: Now generates irregular, randomized shapes!
+    function getRandomPolygonPoints(sides, baseRadius) {
+        const points = [];
+        const angleOffset = (sides % 2 === 0) ? (Math.PI / sides) : 0; 
+        for (let i = sides - 1; i >= 0; i--) { 
+            const angle = (i * 2 * Math.PI / sides) - (Math.PI / 2) + angleOffset;
+            // Add between -30% and +30% variance to the radius for this specific corner
+            const randomWobble = (Math.random() * 0.6 - 0.3) * baseRadius;
+            const r = baseRadius + randomWobble;
+            points.push({ x: r * Math.cos(angle), y: r * Math.sin(angle) });
+        }
+        return points;
+    }
+
+    function buildNewMosaic(shapeKey) {
+        initAudio(); playTone(600, 'sine', 0.1); setTimeout(()=> playTone(700, 'sine', 0.1), 100);
+
+        if (shapeKey === 'random') {
+            const keys = Object.keys(shapeDictionary).filter(k => k != currentBaseShapeSides);
+            currentBaseShapeSides = parseInt(keys[Math.floor(Math.random() * keys.length)]);
+        } else {
+            currentBaseShapeSides = shapeKey;
+        }
+
+        filledHolesCount = 0;
+        currentHoles = [];
+        selectedPieceEl = null;
+        holesLayer.innerHTML = '';
+        piecesLayer.innerHTML = '';
+        nextPuzzleBtn.style.display = 'none';
+        filledCountEl.innerText = 0;
+
+        const baseShapeName = shapeDictionary[currentBaseShapeSides];
+        taskDisplay.innerHTML = `Build the ${baseShapeName} Mosaic!`;
+
+        document.querySelectorAll('.shape-btn').forEach(btn => {
+            if (btn.innerText.includes(baseShapeName)) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+
+        const baseRadius = 75; 
+        const numHoles = 12; 
+        totalCountEl.innerText = numHoles;
+
+        const arenaMargin = 80;
+        const arenaStartX = 250 + arenaMargin;
+        const arenaWidth = 900 - (arenaMargin * 2);
+        const arenaHeight = 700 - (arenaMargin * 2);
+
+        // Generate Target Holes
+        for (let i = 0; i < numHoles; i++) {
+            let placed = false;
+            let attempts = 0;
+            let targetX, targetY, targetScale, targetRot;
+            let pointsString = "";
+
+            while (!placed && attempts < 200) {
+                targetX = arenaStartX + Math.random() * arenaWidth;
+                targetY = arenaMargin + Math.random() * arenaHeight;
+                targetScale = Math.random() * 0.45 + 0.3; // Scale 0.3 to 0.75
+                targetRot = Math.random() * 360;
+                
+                // Account for the random wobble in the collision detection (max possible radius is 1.3x)
+                const collisionRadius = (baseRadius * 1.3 * targetScale) + 5; 
+
+                let overlaps = false;
+                for (let h of currentHoles) {
+                    const dx = targetX - h.targetX;
+                    const dy = targetY - h.targetY;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < (collisionRadius + h.collisionRadius)) {
+                        overlaps = true; break;
+                    }
+                }
+
+                if (!overlaps) {
+                    placed = true;
+                    // Generate unique points ONLY when we find a safe spot
+                    const polygonPoints = getRandomPolygonPoints(currentBaseShapeSides, baseRadius);
+                    pointsString = polygonPoints.map(p => `${p.x},${p.y}`).join(' ');
+                }
+                attempts++;
+            }
+
+            if (placed) {
+                const id = `h-${i}`;
+                
+                const holePoly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                holePoly.setAttribute("points", pointsString);
+                holePoly.setAttribute("class", "puzzle-hole");
+                holePoly.setAttribute("id", id);
+                holePoly.setAttribute("transform", `translate(${targetX}, ${targetY}) scale(${targetScale}) rotate(${targetRot})`);
+                
+                holePoly.onclick = () => handleHoleClick(holePoly, id);
+                holesLayer.appendChild(holePoly);
+
+                currentHoles.push({ 
+                    id, targetX, targetY, targetScale, targetRot, 
+                    collisionRadius: (baseRadius * 1.3 * targetScale) + 5, 
+                    pointsString, filled: false 
+                });
+            }
+        }
+
+        // Generate Inventory Pieces
+        const shuffledHoles = shuffle([...currentHoles]);
+        const cellHeight = 700 / 6; 
+
+        shuffledHoles.forEach((holeData, index) => {
+            const id = `p-${holeData.id}`;
+            let startX, startY;
+
+            if (index < 6) {
+                startX = 125; 
+                startY = (cellHeight / 2) + (index * cellHeight);
+            } else {
+                startX = 1275; 
+                startY = (cellHeight / 2) + ((index - 6) * cellHeight);
+            }
+
+            const pieceG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            pieceG.id = id;
+            pieceG.dataset.holeId = holeData.id; 
+            pieceG.dataset.scale = holeData.targetScale; 
+            pieceG.dataset.startX = startX;
+            pieceG.dataset.startY = startY;
+            pieceG.dataset.currentX = startX;
+            pieceG.dataset.currentY = startY;
+
+            const piecePoly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            // Pull the uniquely generated points from the hole data!
+            piecePoly.setAttribute("points", holeData.pointsString);
+            piecePoly.setAttribute("class", "puzzle-piece");
+
+            pieceG.appendChild(piecePoly);
+            pieceG.setAttribute("transform", `translate(${startX}, ${startY}) scale(${holeData.targetScale}) rotate(0)`);
+
+            setupDualPhysics(pieceG);
+            piecesLayer.appendChild(pieceG);
+        });
+    }
+
+    // --- DUAL PHYSICS ENGINE ---
+
+    function handleHoleClick(holeEl, holeId) {
+        if (!selectedPieceEl) return; 
+
+        const pieceEl = selectedPieceEl;
+        const pieceHoleId = pieceEl.dataset.holeId;
+        const targetData = currentHoles.find(h => h.id === holeId);
+
+        if (pieceHoleId === holeId) {
+            // MATCH!
+            pieceEl.classList.remove('is-selected');
+            selectedPieceEl = null;
+            pieceEl.classList.add('snapped');
+            
+            pieceEl.style.transition = 'transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28)';
+            pieceEl.setAttribute("transform", `translate(${targetData.targetX}, ${targetData.targetY}) scale(${targetData.targetScale}) rotate(${targetData.targetRot})`);
+            
+            playSnap();
+            holeEl.classList.add('filled');
+            targetData.filled = true;
+            
+            filledHolesCount++;
+            filledCountEl.innerText = filledHolesCount;
+            
+            checkWin();
+        } else {
+            // MISMATCH
+            playError();
+            pieceEl.classList.remove('is-selected');
+            selectedPieceEl = null; 
+        }
+    }
+
+    function setupDualPhysics(pieceGroupEl) {
+        let startX, startY;
+
+        pieceGroupEl.addEventListener('pointerdown', (e) => {
+            initAudio(); 
+            piecesLayer.appendChild(pieceGroupEl); 
+
+            const pt = getMousePosition(e);
+            const currX = parseFloat(pieceGroupEl.dataset.currentX);
+            const currY = parseFloat(pieceGroupEl.dataset.currentY);
+
+            startX = e.clientX;
+            startY = e.clientY;
+
+            dragData = {
+                el: pieceGroupEl,
+                offsetX: pt.x - currX,
+                offsetY: pt.y - currY,
+                scale: parseFloat(pieceGroupEl.dataset.scale),
+                hasMoved: false
+            };
+            
+            window.addEventListener('pointermove', drag);
+            window.addEventListener('pointerup', endDrag);
+            e.preventDefault(); 
+        });
+
+        function drag(e) {
+            if (!dragData) return;
+            
+            const dx = Math.abs(e.clientX - startX);
+            const dy = Math.abs(e.clientY - startY);
+            
+            if (dx > 5 || dy > 5) {
+                dragData.hasMoved = true;
+                dragData.el.classList.add('is-dragging');
+                
+                if (selectedPieceEl === dragData.el) {
+                    dragData.el.classList.remove('is-selected');
+                    selectedPieceEl = null;
+                }
+
+                const pt = getMousePosition(e);
+                const nextX = pt.x - dragData.offsetX;
+                const nextY = pt.y - dragData.offsetY;
+
+                dragData.el.dataset.currentX = nextX;
+                dragData.el.dataset.currentY = nextY;
+
+                dragData.el.setAttribute("transform", `translate(${nextX}, ${nextY}) scale(${dragData.scale}) rotate(0)`);
+            }
+        }
+
+        function endDrag(e) {
+            if (!dragData) return;
+            
+            const el = dragData.el;
+            el.classList.remove('is-dragging');
+
+            if (!dragData.hasMoved) {
+                playSelect();
+                if (selectedPieceEl === el) {
+                    el.classList.remove('is-selected');
+                    selectedPieceEl = null;
+                } else {
+                    if (selectedPieceEl) selectedPieceEl.classList.remove('is-selected');
+                    selectedPieceEl = el;
+                    el.classList.add('is-selected');
+                }
+                cleanupDrag();
+                return;
+            }
+
+            const holeId = el.dataset.holeId;
+            const currX = parseFloat(el.dataset.currentX);
+            const currY = parseFloat(el.dataset.currentY);
+            const scale = dragData.scale;
+
+            const targetData = currentHoles.find(h => h.id === holeId);
+            const dx = currX - targetData.targetX;
+            const dy = currY - targetData.targetY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            const snapRadius = 50; 
+
+            if (dist < snapRadius) {
+                el.classList.add('snapped');
+                el.style.transition = 'transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28)';
+                el.setAttribute("transform", `translate(${targetData.targetX}, ${targetData.targetY}) scale(${scale}) rotate(${targetData.targetRot})`);
+                
+                playSnap();
+                document.getElementById(holeId).classList.add('filled');
+                targetData.filled = true;
+                
+                filledHolesCount++;
+                filledCountEl.innerText = filledHolesCount;
+                checkWin();
+            } else {
+                playError();
+                el.style.transition = 'transform 0.3s ease-out';
+                const sX = el.dataset.startX;
+                const sY = el.dataset.startY;
+                
+                el.setAttribute("transform", `translate(${sX}, ${sY}) scale(${scale}) rotate(0)`);
+                el.dataset.currentX = sX;
+                el.dataset.currentY = sY;
+                
+                setTimeout(() => el.style.transition = 'none', 300);
+            }
+
+            cleanupDrag();
+        }
+
+        function cleanupDrag() {
+            window.removeEventListener('pointermove', drag);
+            window.removeEventListener('pointerup', endDrag);
+            dragData = null;
+        }
+    }
+
+    function checkWin() {
+        const total = parseInt(totalCountEl.innerText);
+        if (filledHolesCount >= total) {
+            taskDisplay.innerHTML = "🏆 Mosaic Complete! Bravo!🏆";
+            taskDisplay.style.color = "#f57c00";
+            
+            playTone(400, 'sine', 0.1); setTimeout(()=> playTone(600, 'sine', 0.1), 100); setTimeout(()=> playTone(800, 'sine', 0.4), 200);
+            fireConfetti();
+            
+            nextPuzzleBtn.style.display = 'block';
+        }
+    }
+
+    function fireConfetti() {
+        const cx = window.innerWidth / 2; const cy = window.innerHeight / 2;
+        const colors = ['#8e24aa', '#ea80fc', '#ab47bc', '#ffca28', '#81c784'];
+        
+        for (let i = 0; i < 80; i++) {
+            const p = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            p.setAttribute("cx", cx); p.setAttribute("cy", cy);
+            p.setAttribute("r", Math.random() * 6 + 4); p.setAttribute("class", "particle");
+            p.style.fill = colors[Math.floor(Math.random() * colors.length)];
+            confettiSvg.appendChild(p);
+            
+            p.getBoundingClientRect(); 
+            const angle = Math.random() * Math.PI * 2; const distance = Math.random() * 500 + 100; 
+            
+            p.setAttribute("cx", cx + Math.cos(angle) * distance);
+            p.setAttribute("cy", cy + Math.sin(angle) * distance + 150);
+            p.style.opacity = "0";
+            
+            setTimeout(() => p.remove(), 1000);
+        }
+    }
+</script>
+</body>
+</html>

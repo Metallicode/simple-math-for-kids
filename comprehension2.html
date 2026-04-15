@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Action Reader: Accessible</title>
+    <style>
+        body { 
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #fff8e1; padding: 20px; color: #3e2723;
+            margin: 0; overflow-x: hidden; text-align: center;
+        }
+        
+        h1 { color: #ff8f00; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; }
+        p { font-size: 20px; color: #f57c00; font-weight: bold; margin-top: 0; margin-bottom: 30px;}
+
+        .game-board {
+            background: white; padding: 40px 30px 30px 30px; border-radius: 25px; 
+            border: 4px solid #ffe082; box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: center; gap: 30px;
+            position: relative; z-index: 10;
+        }
+
+        /* Score Badge & Streak */
+        #score-board {
+            position: absolute; top: -25px; background: #4caf50; color: white;
+            padding: 10px 25px; border-radius: 25px; font-size: 26px; font-weight: bold;
+            box-shadow: 0 6px 0 #388e3c; border: 4px solid #fff; transition: transform 0.2s;
+        }
+        .pop-score { transform: scale(1.2); background: #66bb6a !important; }
+
+        #streak-banner {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(0);
+            background: #ff5252; color: white; padding: 15px 40px; border-radius: 50px;
+            font-size: 35px; font-weight: bold; box-shadow: 0 10px 25px rgba(255, 82, 82, 0.5);
+            border: 4px solid #fff; z-index: 50; pointer-events: none; opacity: 0;
+        }
+        .show-streak { animation: roll-anim 2s ease-in-out forwards; }
+
+        @keyframes roll-anim {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            15% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            30% { transform: translate(-50%, -50%) scale(1) rotate(-5deg); }
+            45% { transform: translate(-50%, -50%) scale(1) rotate(5deg); }
+            60% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+
+        /* The Instruction Display */
+        #instruction-display {
+            background-color: #fff3e0; border: 4px dashed #ffb74d; border-radius: 15px;
+            padding: 15px 30px; font-size: 35px; font-weight: bold; color: #e65100;
+            box-shadow: inset 0 0 20px rgba(255, 183, 77, 0.2); transition: transform 0.2s;
+        }
+        .bounce { animation: bounce-anim 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes bounce-anim { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+        /* Play Area */
+        #play-area {
+            width: 100%; min-height: 250px; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; gap: 30px;
+        }
+
+        .row { display: flex; gap: 30px; justify-content: center; width: 100%; }
+
+        /* Complex Grid Layout for Preposition Task */
+        .prep-grid {
+            display: grid; grid-template-columns: 140px 140px; grid-template-rows: 140px 140px; gap: 15px;
+        }
+
+        /* Drop Zones */
+        .drop-zone {
+            width: 140px; height: 140px; border-radius: 20px;
+            display: flex; justify-content: center; align-items: center;
+            position: relative; transition: all 0.2s; cursor: pointer;
+        }
+        .dashed { border: 6px dashed #bdbdbd; background-color: #fafafa; }
+        
+        /* Highlight zone when hovered while something is selected */
+        .drop-zone:hover { box-shadow: inset 0 0 15px rgba(0,0,0,0.1); }
+
+        /* CSS Shapes Engine */
+        .shape-bg {
+            position: absolute; top: 5px; left: 5px; right: 5px; bottom: 5px;
+            z-index: 1; opacity: 0.8; pointer-events: none; /* Let clicks pass through to the drop zone */
+        }
+        
+        .shape-square { border-radius: 15px; }
+        .shape-circle { border-radius: 50%; }
+        .shape-triangle { clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+        .shape-pentagon { clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%); }
+        .shape-hexagon { clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); }
+
+        .color-red { background-color: #ef5350; }
+        .color-blue { background-color: #42a5f5; }
+        .color-green { background-color: #66bb6a; }
+        .color-purple { background-color: #ab47bc; }
+        .color-orange { background-color: #ffa726; }
+
+        /* Items */
+        .item {
+            width: 90px; height: 90px; font-size: 60px;
+            background: white; border: 4px solid #e0e0e0; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 6px 0 #bdbdbd; cursor: pointer; transition: transform 0.1s;
+            touch-action: none; user-select: none; z-index: 20; position: relative;
+        }
+        
+        .item:hover { transform: scale(1.05); }
+        .is-dragging { transition: none !important; opacity: 0.9; transform: scale(1.1); box-shadow: 0 15px 20px rgba(0,0,0,0.3); z-index: 100; }
+        
+        /* New Selected State for Clicking */
+        .is-selected {
+            border-color: #ff9800 !important;
+            box-shadow: 0 0 20px rgba(255, 152, 0, 0.6), 0 6px 0 #f57c00 !important;
+            transform: scale(1.1) !important;
+            animation: gentle-pulse 1s infinite alternate;
+        }
+
+        @keyframes gentle-pulse {
+            from { transform: scale(1.1); }
+            to { transform: scale(1.15); }
+        }
+
+        /* Animations */
+        .wrong-guess {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both !important;
+            border-color: #ef5350 !important; background-color: #ffebee !important;
+        }
+        .correct-guess {
+            background-color: #e8f5e9 !important; border-color: #66bb6a !important; 
+            transform: scale(1.1) !important;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-4px, 0, 0); }
+            20%, 80% { transform: translate3d(8px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-12px, 0, 0); }
+            40%, 60% { transform: translate3d(12px, 0, 0); }
+        }
+
+        /* Feedback & Confetti */
+        #feedback-area { min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #feedback-text { font-size: 35px; font-weight: bold; color: #f57c00; opacity: 0; transform: scale(0.5); transition: all 0.2s; }
+        .show-feedback { opacity: 1 !important; transform: scale(1) !important; }
+
+        #restart-btn {
+            background-color: #42a5f5; color: white; border: none; border-radius: 15px;
+            padding: 15px 40px; font-size: 24px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 6px 0 #1e88e5; display: none; margin-top: 20px;
+        }
+        #restart-btn:active { transform: translateY(6px); box-shadow: 0 0px 0 #1e88e5; }
+        #confetti-svg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        .particle { transition: all 1s cubic-bezier(0.1, 0.8, 0.3, 1); }
+
+    </style>
+</head>
+<body>
+
+    <h1>🕹️ Action Reader 🕹️</h1>
+    <p>Drag or Click! Read the sentence and do what it says.</p>
+
+    <div class="game-board">
+        <div id="score-board">⭐ Score: <span id="score-val">0</span> / 50</div>
+        <div id="streak-banner">🔥 You're on a roll! 🔥</div>
+
+        <div id="instruction-display">Loading...</div>
+
+        <div id="play-area"></div>
+
+        <div id="feedback-area">
+            <div id="feedback-text">Excellent! 🌟</div>
+            <button id="restart-btn" onclick="resetGame()">Play Again 🔄</button>
+        </div>
+    </div>
+    
+    <svg id="confetti-svg"></svg>
+
+<script>
+    const playArea = document.getElementById('play-area');
+    const instructionDisplay = document.getElementById('instruction-display');
+    const feedbackText = document.getElementById('feedback-text');
+    const scoreVal = document.getElementById('score-val');
+    const scoreBoard = document.getElementById('score-board');
+    const streakBanner = document.getElementById('streak-banner');
+    const restartBtn = document.getElementById('restart-btn');
+    const confettiSvg = document.getElementById('confetti-svg');
+
+    // Dictionaries
+    const animals = [ {id:'cow', em:'🐮'}, {id:'pig', em:'🐷'}, {id:'dog', em:'🐶'}, {id:'cat', em:'🐱'}, {id:'fox', em:'🦊'} ];
+    const foods = [ {id:'apple', em:'🍎'}, {id:'banana', em:'🍌'}, {id:'pizza', em:'🍕'}, {id:'burger', em:'🍔'} ];
+    const allItems = [...animals, ...foods];
+
+    const shapes = [
+        {id:'square', class:'shape-square'}, {id:'circle', class:'shape-circle'}, 
+        {id:'triangle', class:'shape-triangle'}, {id:'pentagon', class:'shape-pentagon'}, {id:'hexagon', class:'shape-hexagon'}
+    ];
+    const colors = [
+        {id:'red', class:'color-red'}, {id:'blue', class:'color-blue'}, 
+        {id:'green', class:'color-green'}, {id:'purple', class:'color-purple'}, {id:'orange', class:'color-orange'}
+    ];
+
+    let isWaitingForNext = false;
+    let score = 0; let currentStreak = 0; let targetStreak = getRandomStreakTarget();
+    let currentTask = null;
+    let selectedItem = null; // New variable to track clicked item
+
+    window.onload = startRound;
+
+    function getRandomStreakTarget() { return Math.floor(Math.random() * 4) + 4; }
+
+    function resetGame() {
+        score = 0; currentStreak = 0; targetStreak = getRandomStreakTarget();
+        scoreVal.innerText = score; restartBtn.style.display = 'none';
+        instructionDisplay.style.display = 'block'; startRound();
+    }
+
+    // --- SCENARIO GENERATORS ---
+
+    function genPrepositionTask() {
+        const shape = shapes[Math.floor(Math.random() * shapes.length)];
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const preps = ['on', 'under', 'next to'];
+        const targetPrep = preps[Math.floor(Math.random() * preps.length)];
+
+        let roundItems = [...allItems].sort(() => Math.random() - 0.5).slice(0, 2);
+        let targetItem = roundItems[0];
+        roundItems.sort(() => Math.random() - 0.5);
+
+        return {
+            type: 'drag',
+            instruction: `Put the ${targetItem.id} ${targetPrep} the ${color.id} ${shape.id}.`,
+            correctItemId: targetItem.id,
+            correctZoneId: targetPrep,
+            render: () => {
+                playArea.innerHTML = '';
+                
+                const grid = document.createElement('div');
+                grid.className = 'prep-grid';
+
+                // Helper to create zones
+                const makeZone = (id, col, row, isDashed = false) => {
+                    const zone = document.createElement('div');
+                    zone.className = `drop-zone ${isDashed ? 'dashed' : ''}`;
+                    zone.dataset.zoneId = id;
+                    zone.style.gridColumn = col; zone.style.gridRow = row;
+                    zone.onclick = () => handleZoneClick(zone, id);
+                    return zone;
+                };
+
+                const zoneOn = makeZone('on', '1', '1');
+                const shapeBg = document.createElement('div');
+                shapeBg.className = `shape-bg ${color.class} ${shape.class}`;
+                zoneOn.appendChild(shapeBg);
+                grid.appendChild(zoneOn);
+
+                grid.appendChild(makeZone('next to', '2', '1', true));
+                grid.appendChild(makeZone('under', '1', '2', true));
+
+                playArea.appendChild(grid);
+
+                const itemsRow = document.createElement('div');
+                itemsRow.className = 'row';
+                roundItems.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = 'item draggable';
+                    el.innerText = item.em;
+                    el.dataset.itemId = item.id;
+                    el.addEventListener('pointerdown', handleDragStart);
+                    itemsRow.appendChild(el);
+                });
+                playArea.appendChild(itemsRow);
+            }
+        };
+    }
+
+    function genDiscriminationTask() {
+        let roundShapes = [...shapes].sort(() => Math.random() - 0.5).slice(0, 2);
+        let roundColors = [...colors].sort(() => Math.random() - 0.5).slice(0, 2);
+        
+        let targetItem = [...allItems].sort(() => Math.random() - 0.5)[0];
+        let box1 = { id: 'target', s: roundShapes[0], c: roundColors[0] };
+        let box2 = { id: 'wrong', s: roundShapes[1], c: roundColors[1] };
+        let displayBoxes = [box1, box2].sort(() => Math.random() - 0.5);
+
+        return {
+            type: 'drag',
+            instruction: `Put the ${targetItem.id} on the ${box1.c.id} ${box1.s.id}.`,
+            correctItemId: targetItem.id,
+            correctZoneId: 'target',
+            render: () => {
+                playArea.innerHTML = '';
+                
+                const topRow = document.createElement('div');
+                topRow.className = 'row';
+                displayBoxes.forEach(box => {
+                    const zone = document.createElement('div');
+                    zone.className = 'drop-zone';
+                    zone.dataset.zoneId = box.id;
+                    zone.onclick = () => handleZoneClick(zone, box.id);
+                    
+                    const shapeBg = document.createElement('div');
+                    shapeBg.className = `shape-bg ${box.c.class} ${box.s.class}`;
+                    zone.appendChild(shapeBg);
+                    topRow.appendChild(zone);
+                });
+
+                const bottomRow = document.createElement('div');
+                bottomRow.className = 'row';
+                let roundItems = [targetItem, [...allItems].find(i => i.id !== targetItem.id)].sort(() => Math.random() - 0.5);
+                
+                roundItems.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = 'item draggable';
+                    el.innerText = item.em;
+                    el.dataset.itemId = item.id;
+                    el.addEventListener('pointerdown', handleDragStart);
+                    bottomRow.appendChild(el);
+                });
+
+                playArea.appendChild(topRow);
+                playArea.appendChild(bottomRow);
+            }
+        };
+    }
+
+    function genVocabularyTask() {
+        let roundItems = [...allItems].sort(() => Math.random() - 0.5).slice(0, 3);
+        let targetItem = roundItems[0];
+        roundItems.sort(() => Math.random() - 0.5);
+
+        return {
+            type: 'click',
+            instruction: `Click the ${targetItem.id}.`,
+            correctItemId: targetItem.id,
+            render: () => {
+                playArea.innerHTML = '';
+                const row = document.createElement('div');
+                row.className = 'row';
+                row.style.marginTop = '30px';
+
+                roundItems.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = 'item';
+                    el.innerText = item.em;
+                    // For vocab tasks, pointerdown acts as an immediate click
+                    el.addEventListener('pointerdown', () => handleGameAction('click', el, item.id));
+                    row.appendChild(el);
+                });
+                playArea.appendChild(row);
+            }
+        };
+    }
+
+    // --- DRAG, DROP AND CLICK PHYSICS ENGINE ---
+    let draggedEl = null; 
+    let startX = 0, startY = 0;
+
+    function handleDragStart(e) {
+        if (isWaitingForNext) return;
+        
+        draggedEl = e.currentTarget;
+        startX = e.clientX; 
+        startY = e.clientY;
+        
+        // Don't add 'is-dragging' immediately to allow smooth clicks
+        window.addEventListener('pointermove', handleDragMove);
+        window.addEventListener('pointerup', handleDragEnd);
+        e.preventDefault(); 
+    }
+
+    function handleDragMove(e) {
+        if (!draggedEl) return;
+        
+        // If they moved their finger/mouse even a little bit, consider it a drag
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            draggedEl.classList.add('is-dragging');
+            // If it was previously clicked/selected, remove that visual state
+            draggedEl.classList.remove('is-selected');
+            selectedItem = null;
+            
+            draggedEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.1)`;
+        }
+    }
+
+    function handleDragEnd(e) {
+        if (!draggedEl) return;
+        window.removeEventListener('pointermove', handleDragMove);
+        window.removeEventListener('pointerup', handleDragEnd);
+        
+        const dx = Math.abs(e.clientX - startX);
+        const dy = Math.abs(e.clientY - startY);
+        
+        draggedEl.classList.remove('is-dragging');
+
+        // SMART CLICK DETECTION
+        // If they barely moved their mouse/finger, treat it as a CLICK instead of a drag!
+        if (dx < 5 && dy < 5) {
+            draggedEl.style.transform = `translate(0px, 0px)`; // reset slight jitter
+            handleItemClickSelection(draggedEl);
+            draggedEl = null;
+            return;
+        }
+
+        // Otherwise, it was a drag. Check Collision.
+        const rectItem = draggedEl.getBoundingClientRect();
+        const zones = document.querySelectorAll('.drop-zone');
+        let droppedZoneId = null; let targetZoneEl = null;
+
+        zones.forEach(zone => {
+            const rectZone = zone.getBoundingClientRect();
+            if (!(rectItem.right < rectZone.left || rectItem.left > rectZone.right || 
+                  rectItem.bottom < rectZone.top || rectItem.top > rectZone.bottom)) {
+                droppedZoneId = zone.dataset.zoneId;
+                targetZoneEl = zone;
+            }
+        });
+
+        if (droppedZoneId) {
+            handleGameAction('drop', draggedEl, draggedEl.dataset.itemId, droppedZoneId, targetZoneEl);
+        } else {
+            draggedEl.style.transform = `translate(0px, 0px)`; // Snap back
+        }
+        draggedEl = null;
+    }
+
+    // New logic to handle clicking an item to select it
+    function handleItemClickSelection(item) {
+        if (currentTask.type === 'click') return; // Vocab tasks handle their own clicks
+        
+        // Toggle selection
+        if (selectedItem === item) {
+            item.classList.remove('is-selected');
+            selectedItem = null;
+        } else {
+            if (selectedItem) selectedItem.classList.remove('is-selected');
+            selectedItem = item;
+            item.classList.add('is-selected');
+        }
+    }
+
+    // New logic to handle clicking an empty box when an item is selected
+    function handleZoneClick(zoneElement, zoneId) {
+        if (isWaitingForNext || !selectedItem) return;
+
+        const itemToMove = selectedItem;
+        
+        // Clear selection states immediately
+        itemToMove.classList.remove('is-selected');
+        selectedItem = null;
+
+        // Calculate the flight path from current location to the target box
+        const itemRect = itemToMove.getBoundingClientRect();
+        const zoneRect = zoneElement.getBoundingClientRect();
+        
+        const flightX = (zoneRect.left + zoneRect.width/2) - (itemRect.left + itemRect.width/2);
+        const flightY = (zoneRect.top + zoneRect.height/2) - (itemRect.top + itemRect.height/2);
+
+        // Apply smooth flight animation
+        itemToMove.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+        itemToMove.style.transform = `translate(${flightX}px, ${flightY}px) scale(1.1)`;
+
+        // Wait for the flight to finish, then evaluate the drop
+        setTimeout(() => {
+            handleGameAction('drop', itemToMove, itemToMove.dataset.itemId, zoneId, zoneElement);
+        }, 300);
+    }
+
+    // --- GAME LOGIC ---
+
+    function startRound() {
+        isWaitingForNext = false;
+        selectedItem = null;
+        feedbackText.classList.remove('show-feedback');
+        instructionDisplay.classList.remove('bounce');
+        void instructionDisplay.offsetWidth; 
+        instructionDisplay.classList.add('bounce');
+
+        const rand = Math.random();
+        if (rand < 0.3) { currentTask = genVocabularyTask(); }
+        else if (rand < 0.65) { currentTask = genDiscriminationTask(); }
+        else { currentTask = genPrepositionTask(); }
+        
+        instructionDisplay.innerText = currentTask.instruction;
+        currentTask.render();
+    }
+
+    function handleGameAction(actionType, element, itemId, zoneId = null, zoneElement = null) {
+        if (isWaitingForNext) return;
+        let isCorrect = false;
+
+        if (currentTask.type === 'click' && actionType === 'click') {
+            isCorrect = (itemId === currentTask.correctItemId);
+        } else if (currentTask.type === 'drag' && actionType === 'drop') {
+            isCorrect = (itemId === currentTask.correctItemId && zoneId === currentTask.correctZoneId);
+        } else {
+            element.classList.add('wrong-guess');
+            setTimeout(() => element.classList.remove('wrong-guess'), 400);
+            return;
+        }
+
+        if (isCorrect) {
+            isWaitingForNext = true;
+            if (actionType === 'drop') {
+                element.style.transition = 'all 0.2s';
+                element.style.transform = `translate(0, 0)`; 
+                zoneElement.appendChild(element); 
+                zoneElement.classList.add('correct-guess');
+            } else {
+                element.classList.add('correct-guess');
+            }
+
+            score++; currentStreak++; scoreVal.innerText = score;
+            scoreBoard.classList.add('pop-score');
+            setTimeout(() => scoreBoard.classList.remove('pop-score'), 300);
+
+            feedbackText.classList.add('show-feedback');
+            fireConfetti();
+
+            if (score >= 50) { triggerWin(); return; }
+
+            let delayNext = 1000;
+            if (currentStreak === targetStreak) {
+                streakBanner.classList.add('show-streak');
+                setTimeout(() => streakBanner.classList.remove('show-streak'), 2000);
+                currentStreak = 0; targetStreak = getRandomStreakTarget();
+                delayNext = 2200; 
+            }
+            setTimeout(startRound, delayNext);
+
+        } else {
+            currentStreak = 0; targetStreak = getRandomStreakTarget(); 
+            if (actionType === 'drop') {
+                element.style.transition = 'all 0.3s cubic-bezier(.36,.07,.19,.97)';
+                element.style.transform = `translate(0px, 0px)`; 
+                zoneElement.classList.add('wrong-guess');
+                setTimeout(() => zoneElement.classList.remove('wrong-guess'), 400);
+            } else {
+                element.classList.add('wrong-guess');
+                setTimeout(() => element.classList.remove('wrong-guess'), 400);
+            }
+        }
+    }
+
+    function triggerWin() {
+        playArea.innerHTML = '';
+        instructionDisplay.style.display = 'none';
+        feedbackText.innerText = "🏆 YOU WIN! 🏆";
+        feedbackText.style.fontSize = "60px";
+        feedbackText.classList.add('show-feedback');
+        restartBtn.style.display = 'block';
+        fireConfetti(true);
+    }
+
+    function fireConfetti(isMassive = false) {
+        const centerX = window.innerWidth / 2; const centerY = window.innerHeight / 2;
+        const colors = ['#ffb74d', '#4fc3f7', '#81c784', '#ffeb3b', '#ff5252', '#ab47bc'];
+        const particleCount = isMassive ? 150 : 40;
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            particle.setAttribute("cx", centerX); particle.setAttribute("cy", centerY);
+            particle.setAttribute("r", Math.random() * 6 + 4);
+            particle.setAttribute("class", "particle");
+            particle.style.fill = colors[Math.floor(Math.random() * colors.length)];
+            confettiSvg.appendChild(particle);
+            
+            particle.getBoundingClientRect(); 
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * (isMassive ? 800 : 400) + 100; 
+            
+            particle.setAttribute("cx", centerX + Math.cos(angle) * distance);
+            particle.setAttribute("cy", centerY + Math.sin(angle) * distance + (isMassive ? 200 : 150));
+            particle.style.opacity = "0";
+            
+            setTimeout(() => particle.remove(), 1500);
+        }
+    }
+</script>
+</body>
+</html>

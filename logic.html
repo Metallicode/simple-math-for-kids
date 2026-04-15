@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robo-Chef Logic Kitchen: Expanded</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #1a1a2e; padding: 20px; color: #fff;
+            margin: 0; overflow-x: hidden; text-align: center;
+        }
+        
+        h1 { color: #00e5ff; font-size: 2.5rem; text-shadow: 0 0 15px rgba(0,229,255,0.6); margin-bottom: 5px; }
+        p { font-size: 20px; color: #b0bec5; font-weight: bold; margin-top: 0; margin-bottom: 30px;}
+
+        .game-board {
+            background: #16213e; padding: 30px; border-radius: 25px; 
+            border: 4px solid #0f3460; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 100%; max-width: 900px; display: flex; flex-direction: column; align-items: center; gap: 20px;
+            position: relative; z-index: 10;
+        }
+
+        #score-board {
+            position: absolute; top: -25px; background: #e94560; color: white;
+            padding: 10px 25px; border-radius: 25px; font-size: 24px; font-weight: bold;
+            box-shadow: 0 6px 0 #900c3f; border: 4px solid #1a1a2e; transition: transform 0.2s;
+        }
+        .pop-score { transform: scale(1.2); background: #ff477e !important; }
+
+        #instruction-display {
+            background-color: #0f3460; border: 3px dashed #00e5ff; border-radius: 15px;
+            padding: 15px 30px; font-size: 26px; font-weight: bold; color: #e94560;
+            box-shadow: inset 0 0 20px rgba(0, 229, 255, 0.1); transition: transform 0.2s;
+            min-height: 80px; display: flex; justify-content: center; align-items: center;
+            max-width: 90%;
+        }
+        .bounce { animation: bounce-anim 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes bounce-anim { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        .machine-area {
+            display: flex; align-items: center; justify-content: space-between;
+            width: 100%; position: relative; margin-top: 20px;
+        }
+
+        .inputs-panel { display: flex; flex-direction: column; gap: 40px; z-index: 2; }
+        .input-group { display: flex; align-items: center; gap: 15px; }
+        
+        .ingredient-icon {
+            font-size: 45px; background: #1a1a2e; width: 70px; height: 70px;
+            border-radius: 50%; display: flex; justify-content: center; align-items: center;
+            border: 3px solid #e94560; box-shadow: 0 0 15px rgba(233, 69, 96, 0.4);
+        }
+
+        .switch { position: relative; display: inline-block; width: 80px; height: 40px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #333; transition: .3s; border-radius: 40px;
+            border: 3px solid #555; box-shadow: inset 0 4px 6px rgba(0,0,0,0.5);
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 30px; width: 30px;
+            left: 2px; bottom: 2px; background-color: #aaa; transition: .3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        input:checked + .slider { background-color: #00e5ff; border-color: #00b8d4; box-shadow: inset 0 0 15px rgba(0,229,255,0.5); }
+        input:checked + .slider:before { transform: translateX(40px); background-color: #fff; }
+
+        .wire {
+            height: 10px; flex-grow: 1; background: #333; margin: 0 10px;
+            border-radius: 5px; transition: background 0.3s, box-shadow 0.3s;
+            position: relative; z-index: 1; min-width: 40px;
+        }
+        .wire.active { background: #00e5ff; box-shadow: 0 0 15px #00e5ff, 0 0 30px #00e5ff; }
+        .wire.active-error { background: #e94560; box-shadow: 0 0 15px #e94560; }
+
+        .gate-box {
+            background: #1a1a2e; border: 4px solid #00e5ff; border-radius: 20px;
+            padding: 20px; display: flex; flex-direction: column; align-items: center;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.3); z-index: 2; min-width: 150px;
+        }
+        .gate-name { font-size: 35px; font-weight: bold; color: #00e5ff; letter-spacing: 2px; }
+        .gate-subtitle { font-size: 14px; color: #b0bec5; text-transform: uppercase; margin-top: 5px;}
+
+        .output-panel { display: flex; align-items: center; z-index: 2; }
+        .output-box {
+            width: 100px; height: 100px; background: #1a1a2e; border: 4px dashed #555;
+            border-radius: 20px; font-size: 60px; display: flex; justify-content: center; align-items: center;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .output-success {
+            background: #e8f5e9 !important; border-color: #00e5ff !important; border-style: solid !important;
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.6) !important; transform: scale(1.1);
+        }
+        .output-fail {
+            background: #ffebee !important; border-color: #e94560 !important; border-style: solid !important;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5) !important; animation: shake 0.4s both;
+        }
+
+        #test-btn {
+            background-color: #e94560; color: white; border: none; border-radius: 15px;
+            padding: 15px 50px; font-size: 26px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 8px 0 #900c3f; transition: all 0.1s; margin-top: 20px; text-transform: uppercase;
+        }
+        #test-btn:active { transform: translateY(8px); box-shadow: 0 0px 0 #900c3f; }
+        #test-btn:disabled { background-color: #555; box-shadow: 0 8px 0 #222; color: #888; cursor: not-allowed; }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-4px, 0, 0); }
+            20%, 80% { transform: translate3d(8px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-12px, 0, 0); }
+            40%, 60% { transform: translate3d(12px, 0, 0); }
+        }
+
+        #confetti-svg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        .particle { transition: all 1s cubic-bezier(0.1, 0.8, 0.3, 1); }
+
+        @media (max-width: 600px) {
+            .machine-area { flex-direction: column; gap: 15px; }
+            .wire { width: 10px; height: 30px; min-width: 10px; margin: 5px 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🤖 Robo-Chef Logic Kitchen 🤖</h1>
+    <p>Flip the switches to feed the machine the correct data!</p>
+
+    <div class="game-board">
+        <div id="score-board">⭐ Score: <span id="score-val">0</span></div>
+        
+        <div id="instruction-display">Loading Recipe...</div>
+
+        <div class="machine-area">
+            
+            <div class="inputs-panel">
+                <div class="input-group" id="group-a">
+                    <div class="ingredient-icon" id="icon-a">🥚</div>
+                    <label class="switch">
+                        <input type="checkbox" id="switch-a" onchange="updateWires()">
+                        <span class="slider"></span>
+                    </label>
+                    <div class="wire" id="wire-a"></div>
+                </div>
+                
+                <div class="input-group" id="group-b">
+                    <div class="ingredient-icon" id="icon-b">🥛</div>
+                    <label class="switch">
+                        <input type="checkbox" id="switch-b" onchange="updateWires()">
+                        <span class="slider"></span>
+                    </label>
+                    <div class="wire" id="wire-b"></div>
+                </div>
+            </div>
+
+            <div class="gate-box">
+                <div class="gate-name" id="gate-name">AND</div>
+                <div class="gate-subtitle">Logic Gate</div>
+            </div>
+
+            <div class="wire" id="wire-out"></div>
+
+            <div class="output-panel">
+                <div class="output-box" id="output-box">❓</div>
+            </div>
+
+        </div>
+
+        <button id="test-btn" onclick="runMachine()">Run Machine!</button>
+    </div>
+    
+    <svg id="confetti-svg"></svg>
+
+<script>
+    let audioCtx;
+    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    
+    function playTone(freq, type, duration) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = type; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+
+    const switchA = document.getElementById('switch-a');
+    const switchB = document.getElementById('switch-b');
+    const wireA = document.getElementById('wire-a');
+    const wireB = document.getElementById('wire-b');
+    const wireOut = document.getElementById('wire-out');
+    const iconA = document.getElementById('icon-a');
+    const iconB = document.getElementById('icon-b');
+    const groupB = document.getElementById('group-b');
+    const gateNameDisplay = document.getElementById('gate-name');
+    const instructionDisplay = document.getElementById('instruction-display');
+    const outputBox = document.getElementById('output-box');
+    const testBtn = document.getElementById('test-btn');
+    const scoreVal = document.getElementById('score-val');
+    const confettiSvg = document.getElementById('confetti-svg');
+
+    // MASSIVE Scenario Library (24 Unique Puzzles!)
+    const allLevels = [
+        // --- AND GATES ---
+        { gate: 'AND', desc: "Pancake Recipe: Needs BOTH Egg and Milk!", itemA: '🥚', itemB: '🥛', goalItem: '🥞', evaluate: (a, b) => a && b, startA: false, startB: true },
+        { gate: 'AND', desc: "Campfire: Needs BOTH Wood and a Match!", itemA: '🪵', itemB: '🔥', goalItem: '⛺', evaluate: (a, b) => a && b, startA: true, startB: false },
+        { gate: 'AND', desc: "Movie Night: Needs BOTH a TV and Popcorn!", itemA: '📺', itemB: '🍿', goalItem: '🎬', evaluate: (a, b) => a && b, startA: false, startB: false },
+        { gate: 'AND', desc: "Gardening: Needs BOTH Seeds and Water!", itemA: '🌱', itemB: '💧', goalItem: '🌻', evaluate: (a, b) => a && b, startA: false, startB: false },
+
+        // --- OR GATES ---
+        { gate: 'OR', desc: "Smoothie: Needs Strawberry OR Banana (or both)!", itemA: '🍓', itemB: '🍌', goalItem: '🥤', evaluate: (a, b) => a || b, startA: false, startB: false },
+        { gate: 'OR', desc: "Dessert Time: Wants Ice Cream OR a Donut!", itemA: '🍦', itemB: '🍩', goalItem: '😋', evaluate: (a, b) => a || b, startA: false, startB: false },
+        { gate: 'OR', desc: "Recess: Wants a Soccer Ball OR a Basketball!", itemA: '⚽', itemB: '🏀', goalItem: '🏃', evaluate: (a, b) => a || b, startA: false, startB: false },
+        { gate: 'OR', desc: "Music Class: Play Guitar OR Piano!", itemA: '🎸', itemB: '🎹', goalItem: '🎶', evaluate: (a, b) => a || b, startA: false, startB: false },
+
+        // --- NOT GATES (Only uses Switch A) ---
+        { gate: 'NOT', desc: "Magic Oven: Put NOTHING in, and a Cake comes out!", itemA: '🥦', itemB: null, goalItem: '🎂', evaluate: (a, b) => !a, startA: true, startB: false },
+        { gate: 'NOT', desc: "Nighttime: Turn the Sun OFF to see the Stars!", itemA: '☀️', itemB: null, goalItem: '⭐', evaluate: (a, b) => !a, startA: true, startB: false },
+        { gate: 'NOT', desc: "Quiet Time: Turn OFF the music to Sleep!", itemA: '🎺', itemB: null, goalItem: '😴', evaluate: (a, b) => !a, startA: true, startB: false },
+        { gate: 'NOT', desc: "Snow Melt: Turn OFF the Fire to keep the Snowman!", itemA: '🔥', itemB: null, goalItem: '⛄', evaluate: (a, b) => !a, startA: true, startB: false },
+
+        // --- XOR GATES (Exclusive OR) ---
+        { gate: 'XOR', desc: "Picky Eater: Wants Ketchup OR Mustard, but NOT both!", itemA: '🍅', itemB: '🌭', goalItem: '😋', evaluate: (a, b) => a !== b, startA: true, startB: true },
+        { gate: 'XOR', desc: "Fashion Police: Wear Shorts OR Pants, NOT both!", itemA: '🩳', itemB: '👖', goalItem: '😎', evaluate: (a, b) => a !== b, startA: true, startB: true },
+        { gate: 'XOR', desc: "Weather: Needs Sun OR Rain, but both makes a Rainbow! (We don't want a rainbow)", itemA: '☀️', itemB: '🌧️', goalItem: '👍', evaluate: (a, b) => a !== b, startA: true, startB: true },
+        { gate: 'XOR', desc: "Pet Rule: Mom says you can have ONE pet, NOT both!", itemA: '🐶', itemB: '🐱', goalItem: '🏡', evaluate: (a, b) => a !== b, startA: false, startB: false },
+
+        // --- NAND GATES (Not AND) ---
+        { gate: 'NAND', desc: "Allergic Robot: Eats anything UNLESS you give it BOTH Garlic and Chili!", itemA: '🧄', itemB: '🌶️', goalItem: '🤖', evaluate: (a, b) => !(a && b), startA: true, startB: true },
+        { gate: 'NAND', desc: "Soda Fountain: Mix anything, but Cola AND Mentos will Explode!", itemA: '🥤', itemB: '🍬', goalItem: '✅', evaluate: (a, b) => !(a && b), startA: true, startB: true },
+        { gate: 'NAND', desc: "Too Loud: Play one instrument, but BOTH will wake the baby!", itemA: '🥁', itemB: '🎸', goalItem: '👶', evaluate: (a, b) => !(a && b), startA: true, startB: true },
+        { gate: 'NAND', desc: "Overload: TV or Tablet is fine, but BOTH gets you grounded!", itemA: '📺', itemB: '📱', goalItem: '😇', evaluate: (a, b) => !(a && b), startA: true, startB: true },
+
+        // --- NOR GATES (Not OR) ---
+        { gate: 'NOR', desc: "Diet Robot: Only happy if you give it absolutely NOTHING!", itemA: '🍩', itemB: '🍫', goalItem: '🔋', evaluate: (a, b) => !(a || b), startA: true, startB: false },
+        { gate: 'NOR', desc: "Bedtime: NO Toys and NO Games allowed!", itemA: '🧸', itemB: '🎮', goalItem: '🛏️', evaluate: (a, b) => !(a || b), startA: false, startB: true },
+        { gate: 'NOR', desc: "Clean Room: NO Trash and NO Dirty Clothes!", itemA: '🗑️', itemB: '🧦', goalItem: '✨', evaluate: (a, b) => !(a || b), startA: true, startB: true },
+        { gate: 'NOR', desc: "Zen Garden: NO Phones and NO Computers!", itemA: '📱', itemB: '💻', goalItem: '🧘', evaluate: (a, b) => !(a || b), startA: false, startB: true }
+    ];
+
+    let levelBag = [];
+    let score = 0;
+    let isAnimating = false;
+    let currentLevelObj = null;
+
+    window.onload = loadLevel;
+
+    function getNextLevel() {
+        // If the bag is empty, fill it with all 24 levels and shuffle them!
+        if (levelBag.length === 0) {
+            levelBag = [...allLevels].sort(() => Math.random() - 0.5);
+        }
+        // Pull one out of the bag
+        return levelBag.pop();
+    }
+
+    function loadLevel() {
+        isAnimating = false;
+        outputBox.className = 'output-box';
+        outputBox.innerText = '❓';
+        wireOut.className = 'wire';
+        testBtn.disabled = false;
+        testBtn.innerText = "RUN MACHINE!";
+
+        currentLevelObj = getNextLevel();
+
+        gateNameDisplay.innerText = currentLevelObj.gate;
+        instructionDisplay.innerText = currentLevelObj.desc;
+        instructionDisplay.classList.remove('bounce');
+        void instructionDisplay.offsetWidth;
+        instructionDisplay.classList.add('bounce');
+
+        iconA.innerText = currentLevelObj.itemA;
+        switchA.checked = currentLevelObj.startA;
+
+        if (currentLevelObj.gate === 'NOT') {
+            groupB.style.display = 'none'; 
+            switchB.checked = false;
+        } else {
+            groupB.style.display = 'flex';
+            iconB.innerText = currentLevelObj.itemB;
+            switchB.checked = currentLevelObj.startB;
+        }
+
+        updateWires();
+    }
+
+    function updateWires() {
+        initAudio();
+        playTone(600, 'square', 0.05);
+
+        if (switchA.checked) wireA.classList.add('active');
+        else wireA.classList.remove('active');
+
+        if (switchB.checked) wireB.classList.add('active');
+        else wireB.classList.remove('active');
+        
+        outputBox.className = 'output-box';
+        outputBox.innerText = '❓';
+        wireOut.className = 'wire';
+    }
+
+    function runMachine() {
+        if (isAnimating) return;
+        initAudio();
+        
+        const a = switchA.checked;
+        const b = switchB.checked;
+        const isSuccess = currentLevelObj.evaluate(a, b);
+
+        isAnimating = true;
+        testBtn.disabled = true;
+
+        if (isSuccess) {
+            playTone(400, 'sine', 0.1);
+            setTimeout(() => playTone(600, 'sine', 0.1), 100);
+            setTimeout(() => playTone(800, 'sine', 0.4), 200);
+
+            wireOut.classList.add('active');
+            outputBox.classList.add('output-success');
+            outputBox.innerText = currentLevelObj.goalItem;
+            
+            score++;
+            scoreVal.innerText = score;
+            document.getElementById('score-board').classList.add('pop-score');
+            setTimeout(() => document.getElementById('score-board').classList.remove('pop-score'), 300);
+
+            fireConfetti();
+
+            setTimeout(loadLevel, 2500);
+
+        } else {
+            playTone(150, 'sawtooth', 0.3);
+            
+            wireOut.classList.add('active-error');
+            outputBox.classList.add('output-fail');
+            outputBox.innerText = '❌';
+
+            setTimeout(() => {
+                isAnimating = false;
+                testBtn.disabled = false;
+                wireOut.classList.remove('active-error');
+                outputBox.classList.remove('output-fail');
+                outputBox.innerText = '❓';
+            }, 1000);
+        }
+    }
+
+    function fireConfetti() {
+        const centerX = window.innerWidth / 2; const centerY = window.innerHeight / 2;
+        const colors = ['#00e5ff', '#e94560', '#50fa7b', '#f1fa8c', '#bd93f9'];
+        
+        for (let i = 0; i < 60; i++) {
+            const particle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            particle.setAttribute("cx", centerX); particle.setAttribute("cy", centerY);
+            particle.setAttribute("r", Math.random() * 6 + 4);
+            particle.setAttribute("class", "particle");
+            particle.style.fill = colors[Math.floor(Math.random() * colors.length)];
+            confettiSvg.appendChild(particle);
+            
+            particle.getBoundingClientRect(); 
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 400 + 100; 
+            
+            particle.setAttribute("cx", centerX + Math.cos(angle) * distance);
+            particle.setAttribute("cy", centerY + Math.sin(angle) * distance + 150);
+            particle.style.opacity = "0";
+            
+            setTimeout(() => particle.remove(), 1500);
+        }
+    }
+</script>
+</body>
+</html>

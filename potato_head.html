@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Burst: Maximum Chaos</title>
+    <style>
+        body { 
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #fce4ec; padding: 20px; color: #880e4f;
+            margin: 0; overflow-x: hidden; text-align: center;
+            height: 100vh; box-sizing: border-box;
+        }
+        
+        h1 { color: #d81b60; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; }
+        p { font-size: 18px; color: #ec407a; font-weight: bold; margin-top: 0; margin-bottom: 20px;}
+
+        /* UI Container at top */
+        #ui-container {
+            display: flex; flex-direction: column; align-items: center; gap: 15px; 
+            z-index: 10; position: relative; width: 100%; max-width: 800px;
+        }
+
+        #problem-display {
+            background-color: #fff3e0; border: 4px dashed #ffb74d; border-radius: 15px;
+            padding: 15px 30px; font-size: 50px; font-weight: bold; color: #e65100;
+        }
+
+        .options-container { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;}
+
+        .option-btn {
+            background: #ffffff; color: #ec407a; border: 4px solid #f8bbd0; border-radius: 15px;
+            padding: 15px 30px; font-size: 30px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 6px 0 #f8bbd0; transition: all 0.1s;
+        }
+        .option-btn:active { transform: translateY(6px); box-shadow: 0 0px 0 #f8bbd0; }
+
+        /* UI Animations */
+        .wrong-shake { animation: ui-shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes ui-shake { 
+            10%, 90% { transform: translate3d(-4px, 0, 0); } 
+            20%, 80% { transform: translate3d(8px, 0, 0); } 
+            30%, 50%, 70% { transform: translate3d(-12px, 0, 0); } 
+            40%, 60% { transform: translate3d(12px, 0, 0); } 
+        }
+
+        /* --- THE GIANT PLAYER --- */
+        #player {
+            position: fixed; top: 0; left: 0; /* Required for perfect collision math */
+            width: 300px; height: 300px;
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            user-select: none; z-index: 2; pointer-events: none;
+            will-change: transform;
+        }
+        
+        .placeholder-player { font-size: 250px; display: flex; justify-content: center; align-items: center;}
+
+        /* --- PARTICLES CONTAINER --- */
+        #particles-container {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 1; 
+        }
+
+        .particle {
+            position: absolute; top: 0; left: 0; width: 60px; height: 60px;
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            will-change: transform;
+        }
+        
+        .placeholder-particle { font-size: 50px; display: flex; justify-content: center; align-items: center;}
+
+    </style>
+</head>
+<body>
+
+    <h1>💥 Super Math Burst! 💥</h1>
+    <p>Get the answer right to blast the player across the screen!</p>
+
+    <div id="ui-container">
+        <div id="problem-display">4 + 5</div>
+        <div class="options-container" id="options"></div>
+    </div>
+
+    <div id="player"></div>
+    <div id="particles-container"></div>
+    
+<script>
+    let audioCtx;
+    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    function playBeep(freq, type = 'sine') {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = type; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+    }
+
+    const uiContainer = document.getElementById('ui-container');
+    const problemDisplay = document.getElementById('problem-display');
+    const optionsContainer = document.getElementById('options');
+    const playerEl = document.getElementById('player');
+    const particlesContainer = document.getElementById('particles-container');
+
+    // --- CUSTOM IMAGES CONFIGURATION ---
+    const usePlaceholders = false; // Set to false to use PNGs
+    const imgNormal = 'kali.png';
+    const imgExplodeParticle = 'poop.png'; // Small particles thrown out
+    const emNormal = '😂';
+    const emParticleTypes = ['💥', '🔥', '✨', '💢', '🌟', '🤯'];
+
+    let currentCorrectAnswer = 0;
+    
+    // Physics State
+    let isPhysicsLoopRunning = false;
+    let activeParticles = [];
+    
+    // Big Player State
+    let playerP = {
+        active: false,
+        size: 300,
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2 + 100, 
+        vx: 0, vy: 0, rot: 0, vrot: 0
+    };
+
+    window.onload = () => {
+        // Load the main player image once on startup
+        if (usePlaceholders) {
+            playerEl.classList.add('placeholder-player');
+            playerEl.innerText = emNormal;
+        } else {
+            playerEl.style.backgroundImage = `url('${imgNormal}')`;
+        }
+        
+        // Put player in starting position
+        playerEl.style.transform = `translate(${playerP.x - playerP.size/2}px, ${playerP.y - playerP.size/2}px) rotate(0deg)`;
+        
+        startRound();
+    };
+
+    function shuffle(array) { return array.sort(() => Math.random() - 0.5); }
+
+    function generateProblem() {
+        const type = Math.random() < 0.5 ? 'add' : 'mult';
+        let num1, num2, termStr, answer;
+        if (type === 'add') {
+            num1 = Math.floor(Math.random() * 12) + 1; num2 = Math.floor(Math.random() * 12) + 1;
+            termStr = `${num1} + ${num2}`; answer = num1 + num2;
+        } else {
+            num1 = Math.floor(Math.random() * 6) + 2; num2 = Math.floor(Math.random() * 6) + 2; 
+            termStr = `${num1} × ${num2}`; answer = num1 * num2;
+        }
+        return { term: termStr, ans: answer };
+    }
+
+    function startRound() {
+        const prob = generateProblem();
+        problemDisplay.innerText = prob.term;
+        currentCorrectAnswer = prob.ans;
+
+        let optionsSet = new Set();
+        optionsSet.add(prob.ans);
+        while (optionsSet.size < 3) {
+            let offset = Math.floor(Math.random() * 5) + 1;
+            let wrong = prob.ans + (Math.random() < 0.5 ? offset : -offset);
+            if (wrong > 0 && wrong !== prob.ans) optionsSet.add(wrong);
+        }
+
+        optionsContainer.innerHTML = '';
+        shuffle(Array.from(optionsSet)).forEach(opt => {
+            let btn = document.createElement('button');
+            btn.className = 'option-btn'; btn.innerText = opt;
+            btn.onclick = () => handleGuess(opt, btn);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    function handleGuess(guessedNum, btnEl) {
+        initAudio();
+        if (guessedNum === currentCorrectAnswer) {
+            triggerSuperExplosion();
+            startRound(); 
+        } else {
+            // WRONG ANSWER BEHAVIOR
+            playBeep(200, 'sawtooth');
+            
+            // Shake the UI container
+            uiContainer.classList.remove('wrong-shake');
+            void uiContainer.offsetWidth; // trigger reflow to restart animation
+            uiContainer.classList.add('wrong-shake');
+            
+            // Wait for shake to finish, then generate a new math problem
+            setTimeout(() => {
+                startRound();
+            }, 400);
+        }
+    }
+
+    class Particle {
+        constructor(x, y, vx, vy, rot, vrot, decay, size) {
+            this.element = document.createElement('div');
+            this.element.className = 'particle';
+            this.size = size;
+            this.element.style.width = `${size}px`; this.element.style.height = `${size}px`;
+
+            if (usePlaceholders) {
+                this.element.classList.add('placeholder-particle');
+                this.element.innerText = emParticleTypes[Math.floor(Math.random() * emParticleTypes.length)];
+            } else {
+                this.element.style.backgroundImage = `url('${imgExplodeParticle}')`;
+            }
+
+            particlesContainer.appendChild(this.element);
+
+            this.x = x; this.y = y;
+            this.vx = vx; this.vy = vy;
+            this.rot = rot; this.vrot = vrot;
+            this.decay = decay; this.life = 1.0;
+        }
+
+        update() {
+            this.x += this.vx; this.y += this.vy; this.rot += this.vrot;
+
+            const sHalf = this.size / 2;
+            const screenW = window.innerWidth; const screenH = window.innerHeight;
+
+            if (this.x <= sHalf) { this.x = sHalf; this.vx *= -1; }
+            if (this.x >= screenW - sHalf) { this.x = screenW - sHalf; this.vx *= -1; }
+            if (this.y <= sHalf) { this.y = sHalf; this.vy *= -1; }
+            if (this.y >= screenH - sHalf) { this.y = screenH - sHalf; this.vy *= -1; }
+
+            this.element.style.transform = `translate(${this.x - sHalf}px, ${this.y - sHalf}px) rotate(${this.rot}deg) scale(${this.life})`;
+
+            this.vx *= this.decay; this.vy *= this.decay; this.vrot *= this.decay;
+            this.life *= (this.decay - 0.005); 
+            return this.life > 0.1;
+        }
+
+        remove() { this.element.remove(); }
+    }
+
+    function triggerSuperExplosion() {
+        initAudio();
+        playBeep(600); setTimeout(() => playBeep(800), 100); setTimeout(() => playBeep(1000), 200);
+
+        playerP.active = true;
+        
+        // Give the player huge new velocities
+        const playerSpeed = 35; 
+        playerP.vx = (Math.random() - 0.5) * 2 * playerSpeed;
+        playerP.vy = (Math.random() - 0.5) * 2 * playerSpeed;
+        playerP.vrot = (Math.random() - 0.5) * 60;
+
+        // Shoot tiny particles out from the player's current location
+        for (let i = 0; i < 20; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const varSpeed = 20 + (Math.random() - 0.5) * 10;
+            const vx = Math.cos(angle) * varSpeed;
+            const vy = Math.sin(angle) * varSpeed;
+            const rot = Math.random() * 360;
+            const vrot = (Math.random() - 0.5) * 50;
+            const decay = 0.985 - (Math.random() * 0.02);
+            const size = 60 + (Math.random() - 0.5) * 30;
+
+            activeParticles.push(new Particle(playerP.x, playerP.y, vx, vy, rot, vrot, decay, size));
+        }
+
+        if (!isPhysicsLoopRunning) {
+            isPhysicsLoopRunning = true;
+            physicsLoop();
+        }
+    }
+
+    let animationId;
+    function physicsLoop() {
+        if (!isPhysicsLoopRunning) return;
+        
+        let stillAnimating = false;
+
+        if (playerP.active) {
+            stillAnimating = true;
+            playerP.x += playerP.vx;
+            playerP.y += playerP.vy;
+            playerP.rot += playerP.vrot;
+
+            const sHalf = playerP.size / 2;
+            if (playerP.x <= sHalf) { playerP.x = sHalf; playerP.vx *= -1; }
+            if (playerP.x >= window.innerWidth - sHalf) { playerP.x = window.innerWidth - sHalf; playerP.vx *= -1; }
+            if (playerP.y <= sHalf) { playerP.y = sHalf; playerP.vy *= -1; }
+            if (playerP.y >= window.innerHeight - sHalf) { playerP.y = window.innerHeight - sHalf; playerP.vy *= -1; }
+
+            playerP.vx *= 0.985; 
+            playerP.vy *= 0.985;
+            playerP.vrot *= 0.985;
+
+            playerEl.style.transform = `translate(${playerP.x - sHalf}px, ${playerP.y - sHalf}px) rotate(${playerP.rot}deg)`;
+
+            // Stop condition - DO NOT reset to center! Just stop updating.
+            if (Math.abs(playerP.vx) < 0.2 && Math.abs(playerP.vy) < 0.2 && Math.abs(playerP.vrot) < 1) {
+                playerP.active = false;
+            }
+        }
+
+        for (let i = activeParticles.length - 1; i >= 0; i--) {
+            stillAnimating = true;
+            if (!activeParticles[i].update()) {
+                activeParticles[i].remove();
+                activeParticles.splice(i, 1);
+            }
+        }
+
+        if (!stillAnimating) {
+            isPhysicsLoopRunning = false;
+            cancelAnimationFrame(animationId);
+        } else {
+            animationId = requestAnimationFrame(physicsLoop);
+        }
+    }
+</script>
+</body>
+</html>

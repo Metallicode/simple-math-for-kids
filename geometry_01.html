@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rubber Band Geometry</title>
+    <style>
+        body { 
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #e8eaf6; padding: 20px; color: #283593;
+            margin: 0; overflow-x: hidden; text-align: center;
+        }
+        
+        h1 { color: #3f51b5; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; }
+        p { font-size: 18px; color: #5c6bc0; font-weight: bold; margin-top: 0; margin-bottom: 20px;}
+
+        .game-board {
+            background: white; padding: 30px; border-radius: 25px; 
+            border: 4px solid #c5cae9; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%; max-width: 900px; display: flex; flex-direction: column; align-items: center; gap: 20px;
+            position: relative; z-index: 10;
+        }
+
+        /* The Control Panel */
+        .controls {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+            background: #f5f5f5; padding: 15px; border-radius: 15px; width: 100%; box-sizing: border-box;
+        }
+
+        .shape-btn {
+            background: #ffffff; color: #3949ab; border: 3px solid #9fa8da; border-radius: 12px;
+            padding: 10px 20px; font-size: 20px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 5px 0 #9fa8da; transition: all 0.1s;
+        }
+        .shape-btn:active, .shape-btn.active { 
+            transform: translateY(5px); box-shadow: 0 0px 0 #9fa8da; 
+            background: #e8eaf6; border-color: #5c6bc0; color: #1a237e;
+        }
+
+        /* The Dynamic Shape Name Display */
+        #shape-name-display {
+            background-color: #e8f5e9; border: 4px dashed #81c784; border-radius: 15px;
+            padding: 15px 30px; font-size: 30px; font-weight: bold; color: #2e7d32;
+            transition: all 0.3s; width: 80%;
+        }
+        .irregular-state {
+            background-color: #fff3e0 !important; border-color: #ffb74d !important; color: #e65100 !important;
+        }
+
+        /* --- THE SVG GEOMETRY BOARD --- */
+        #geometry-board {
+            width: 100%; height: 450px; background: #fafafa;
+            border: 4px solid #e0e0e0; border-radius: 20px;
+            touch-action: none; /* Prevents screen scrolling while dragging */
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+            /* A subtle grid background */
+            background-image: linear-gradient(#eeeeee 2px, transparent 2px), linear-gradient(90deg, #eeeeee 2px, transparent 2px);
+            background-size: 40px 40px;
+            cursor: crosshair;
+        }
+
+        /* SVG Element Styles */
+        .polygon-shape {
+            fill: rgba(63, 81, 181, 0.2); /* Semi-transparent blue */
+            stroke: #3f51b5;
+            stroke-width: 6;
+            stroke-linejoin: round;
+            transition: fill 0.3s;
+        }
+
+        .vertex-handle {
+            fill: #ff4081; stroke: #fff; stroke-width: 4;
+            cursor: grab; transition: r 0.2s, fill 0.2s;
+        }
+        .vertex-handle:hover { r: 18; fill: #f50057; }
+        .vertex-handle:active { cursor: grabbing; r: 15; }
+
+        .edge-label {
+            font-family: 'Comic Sans MS', sans-serif; font-weight: bold; font-size: 22px;
+            fill: #1a237e; user-select: none; pointer-events: none;
+            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff;
+        }
+
+        .center-face {
+            font-family: Arial, sans-serif; font-size: 40px; font-weight: bold;
+            fill: #3949ab; user-select: none; pointer-events: none;
+            text-anchor: middle; dominant-baseline: central;
+        }
+
+        #confetti-svg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        .particle { transition: all 1s cubic-bezier(0.1, 0.8, 0.3, 1); }
+
+    </style>
+</head>
+<body>
+
+    <h1>📐 Geometry Rubber Band 📐</h1>
+    <p>Pick a shape, then drag the corners to stretch it!</p>
+
+    <div class="game-board">
+        
+        <div class="controls" id="controls">
+            <button class="shape-btn" onclick="buildShape(3)">3 Sides</button>
+            <button class="shape-btn" onclick="buildShape(4)">4 Sides</button>
+            <button class="shape-btn" onclick="buildShape(5)">5 Sides</button>
+            <button class="shape-btn" onclick="buildShape(6)">6 Sides</button>
+            <button class="shape-btn" onclick="buildShape(7)">7 Sides</button>
+            <button class="shape-btn" onclick="buildShape(8)">8 Sides</button>
+        </div>
+
+        <div id="shape-name-display">Loading...</div>
+
+        <svg id="geometry-board" viewBox="0 0 800 450" preserveAspectRatio="xMidYMid meet">
+            <polygon id="poly" class="polygon-shape" points=""></polygon>
+            <text id="face" class="center-face" x="400" y="225">(•‿•)</text>
+        </svg>
+
+    </div>
+    
+    <svg id="confetti-svg"></svg>
+
+<script>
+    let audioCtx;
+    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    
+    function playPluck(freq) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'triangle'; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function playSnap() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'square'; osc.frequency.value = 150;
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    const svgBoard = document.getElementById('geometry-board');
+    const polyEl = document.getElementById('poly');
+    const faceEl = document.getElementById('face');
+    const shapeNameDisplay = document.getElementById('shape-name-display');
+    const confettiSvg = document.getElementById('confetti-svg');
+
+    // State
+    let points = []; 
+    let currentSides = 0;
+    let isRegular = true;
+    let draggedPointIndex = null;
+
+    const shapeNames = {
+        3: "Triangle",
+        4: "Quadrilateral",
+        5: "Pentagon",
+        6: "Hexagon",
+        7: "Heptagon",
+        8: "Octagon"
+    };
+
+    window.onload = () => buildShape(4); // Start with a square
+
+    function buildShape(sides) {
+        initAudio(); playPluck(600); setTimeout(() => playPluck(800), 100);
+        
+        currentSides = sides;
+        isRegular = true;
+        points = [];
+
+        // Update active button state
+        document.querySelectorAll('.shape-btn').forEach(btn => {
+            if (btn.innerText.startsWith(sides)) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+
+        // Math to generate a perfect regular polygon centered in the SVG
+        const centerX = 400; 
+        const centerY = 225;
+        const radius = 150;
+        
+        // Offset so shapes sit flat on the bottom if possible
+        const angleOffset = (sides % 2 === 0) ? (Math.PI / sides) : 0; 
+
+        for (let i = 0; i < sides; i++) {
+            // Calculate angle for each point
+            const angle = (i * 2 * Math.PI / sides) - (Math.PI / 2) + angleOffset;
+            points.push({
+                x: centerX + radius * Math.cos(angle),
+                y: centerY + radius * Math.sin(angle)
+            });
+        }
+
+        updateUI();
+        fireConfetti();
+    }
+
+    // --- RENDER ENGINE ---
+    function updateUI() {
+        // 1. Update the Polygon path
+        const pointsString = points.map(p => `${p.x},${p.y}`).join(' ');
+        polyEl.setAttribute('points', pointsString);
+
+        // Clear old handles and labels
+        document.querySelectorAll('.vertex-handle, .edge-label').forEach(el => el.remove());
+
+        let centroidX = 0;
+        let centroidY = 0;
+
+        // 2. Draw Edges Labels (proving the sides exist)
+        for (let i = 0; i < points.length; i++) {
+            const p1 = points[i];
+            const p2 = points[(i + 1) % points.length]; // Wraps around to first point
+            
+            centroidX += p1.x;
+            centroidY += p1.y;
+
+            const midX = (p1.x + p2.x) / 2;
+            const midY = (p1.y + p2.y) / 2;
+
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute('x', midX);
+            text.setAttribute('y', midY);
+            text.setAttribute('class', 'edge-label');
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'central');
+            text.textContent = i + 1; // Number the side
+            svgBoard.appendChild(text);
+        }
+
+        // 3. Draw Draggable Vertices (Corners)
+        points.forEach((p, index) => {
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute('cx', p.x);
+            circle.setAttribute('cy', p.y);
+            circle.setAttribute('r', 12);
+            circle.setAttribute('class', 'vertex-handle');
+            
+            // Attach Physics events to this specific corner
+            circle.addEventListener('pointerdown', (e) => startDrag(e, index));
+            svgBoard.appendChild(circle);
+        });
+
+        // 4. Update the Face in the center
+        centroidX /= points.length;
+        centroidY /= points.length;
+        faceEl.setAttribute('x', centroidX);
+        faceEl.setAttribute('y', centroidY);
+
+        if (!isRegular) {
+            faceEl.textContent = "O_O"; // Stretched face!
+            polyEl.style.fill = "rgba(255, 152, 0, 0.2)"; // Turns orange when irregular
+            polyEl.style.stroke = "#ff9800";
+        } else {
+            faceEl.textContent = "(•‿•)"; // Happy regular face
+            polyEl.style.fill = "rgba(63, 81, 181, 0.2)";
+            polyEl.style.stroke = "#3f51b5";
+        }
+
+        // 5. Update the Text Display
+        const baseName = shapeNames[currentSides];
+        if (isRegular) {
+            shapeNameDisplay.innerText = `Regular ${baseName} (${currentSides} Sides)`;
+            shapeNameDisplay.classList.remove('irregular-state');
+        } else {
+            shapeNameDisplay.innerText = `Irregular ${baseName} (Still ${currentSides} Sides!)`;
+            shapeNameDisplay.classList.add('irregular-state');
+        }
+    }
+
+    // --- SVG PHYSICS AND DRAGGING ---
+    
+    // Converts screen pixel coordinates to SVG internal coordinates
+    function getMousePosition(evt) {
+        const CTM = svgBoard.getScreenCTM();
+        return {
+            x: (evt.clientX - CTM.e) / CTM.a,
+            y: (evt.clientY - CTM.f) / CTM.d
+        };
+    }
+
+    function startDrag(e, index) {
+        initAudio();
+        draggedPointIndex = index;
+        
+        // As soon as they grab a point, it's no longer regular!
+        if (isRegular) {
+            isRegular = false;
+            playSnap();
+        } else {
+            playPluck(400); // Pluck sound for grabbing the rubber band
+        }
+
+        window.addEventListener('pointermove', drag);
+        window.addEventListener('pointerup', endDrag);
+        e.preventDefault(); // Stop mobile scrolling
+    }
+
+    function drag(e) {
+        if (draggedPointIndex === null) return;
+        
+        const pos = getMousePosition(e);
+        
+        // Keep points inside the SVG box so they don't get lost
+        points[draggedPointIndex].x = Math.max(20, Math.min(780, pos.x));
+        points[draggedPointIndex].y = Math.max(20, Math.min(430, pos.y));
+        
+        // Fast Redraw
+        updateUI();
+    }
+
+    function endDrag(e) {
+        if (draggedPointIndex !== null) {
+            playPluck(500); // Release snap sound
+        }
+        draggedPointIndex = null;
+        window.removeEventListener('pointermove', drag);
+        window.removeEventListener('pointerup', endDrag);
+    }
+
+    function fireConfetti() {
+        const cx = window.innerWidth / 2; const cy = window.innerHeight / 2;
+        const colors = ['#3f51b5', '#ff4081', '#81c784', '#ffeb3b', '#29b6f6'];
+        
+        for (let i = 0; i < 40; i++) {
+            const p = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            p.setAttribute("cx", cx); p.setAttribute("cy", cy);
+            p.setAttribute("r", Math.random() * 6 + 4); p.setAttribute("class", "particle");
+            p.style.fill = colors[Math.floor(Math.random() * colors.length)];
+            confettiSvg.appendChild(p);
+            
+            p.getBoundingClientRect(); 
+            const angle = Math.random() * Math.PI * 2; const distance = Math.random() * 400 + 100; 
+            
+            p.setAttribute("cx", cx + Math.cos(angle) * distance);
+            p.setAttribute("cy", cy + Math.sin(angle) * distance + 150);
+            p.style.opacity = "0";
+            
+            setTimeout(() => p.remove(), 1000);
+        }
+    }
+</script>
+</body>
+</html>

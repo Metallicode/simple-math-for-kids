@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyboard Explorer</title>
+    <style>
+        body { 
+            font-family: 'Verdana', 'Segoe UI', Tahoma, sans-serif; /* Clean fonts for easy letter recognition */
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #e0f7fa; padding: 20px; color: #0277bd;
+            margin: 0; overflow-x: hidden; text-align: center;
+        }
+        
+        h1 { color: #0288d1; font-size: 2.5rem; text-shadow: 2px 2px 0px #fff; margin-bottom: 5px; }
+        p { font-size: 20px; color: #039be5; font-weight: bold; margin-top: 0; margin-bottom: 30px;}
+
+        .game-board {
+            background: white; padding: 50px 30px; border-radius: 25px; 
+            border: 4px solid #81d4fa; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: center; gap: 20px;
+            position: relative; z-index: 10;
+        }
+
+        #score-board {
+            position: absolute; top: -25px; background: #ffca28; color: #e65100;
+            padding: 10px 25px; border-radius: 25px; font-size: 26px; font-weight: bold;
+            box-shadow: 0 6px 0 #ff8f00; border: 4px solid #fff; transition: transform 0.2s;
+        }
+        .pop-score { transform: scale(1.2); color: #bf360c !important; }
+
+        /* The Word Display */
+        #word-container {
+            display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
+            min-height: 120px; align-items: center; padding: 20px;
+        }
+
+        .letter {
+            font-size: 80px; font-weight: 900; color: #cfd8dc;
+            text-transform: uppercase; padding: 0 5px;
+            border-bottom: 8px solid transparent;
+            transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* State Classes for Letters */
+        .letter.current {
+            color: #4fc3f7; border-bottom: 8px solid #29b6f6;
+            transform: translateY(-5px);
+        }
+
+        .letter.typed {
+            color: #66bb6a; border-bottom: 8px solid transparent;
+            text-shadow: 0 0 15px rgba(102, 187, 106, 0.5);
+        }
+
+        /* Animations */
+        .wrong-shake {
+            animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+            color: #ef5350 !important;
+        }
+
+        .word-complete {
+            animation: pop-word 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-4px, 0, 0); }
+            20%, 80% { transform: translate3d(8px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-12px, 0, 0); }
+            40%, 60% { transform: translate3d(12px, 0, 0); }
+        }
+
+        @keyframes pop-word {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1.1); opacity: 0; }
+        }
+
+        /* Mobile Keyboard Helper */
+        #mobile-input {
+            position: absolute; opacity: 0; pointer-events: none;
+        }
+        #mobile-btn {
+            background-color: #29b6f6; color: white; border: none; border-radius: 15px;
+            padding: 15px 30px; font-size: 20px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 6px 0 #0288d1; margin-top: 20px; display: none;
+        }
+        #mobile-btn:active { transform: translateY(6px); box-shadow: 0 0px 0 #0288d1; }
+
+        @media (max-width: 768px) {
+            #mobile-btn { display: block; }
+            .letter { font-size: 55px; }
+        }
+
+        #confetti-svg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        .particle { transition: all 1s cubic-bezier(0.1, 0.8, 0.3, 1); }
+
+    </style>
+</head>
+<body>
+
+    <h1>⌨️ Keyboard Explorer ⌨️</h1>
+    <p>Type the letters on your keyboard to spell the words!</p>
+
+    <div class="game-board">
+        <div id="score-board">Words: <span id="score-val">0</span></div>
+        
+        <div id="word-container">
+            </div>
+        
+        <input type="text" id="mobile-input" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button id="mobile-btn" onclick="document.getElementById('mobile-input').focus()">Tap to open keyboard 📱</button>
+    </div>
+
+    <svg id="confetti-svg"></svg>
+
+<script>
+    // Audio Context for the typing beeps
+    let audioCtx;
+    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    
+    function playBeep() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'sine'; osc.frequency.value = 800; // High pitched, pleasant beep
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function playError() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'triangle'; osc.frequency.value = 150; // Low thud
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+    }
+
+    function playWin() {
+        if (!audioCtx) return;
+        playBeep();
+        setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'sine'; osc.frequency.value = 1200;
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        }, 100);
+    }
+
+    const wordContainer = document.getElementById('word-container');
+    const scoreVal = document.getElementById('score-val');
+    const scoreBoard = document.getElementById('score-board');
+    const mobileInput = document.getElementById('mobile-input');
+    const confettiSvg = document.getElementById('confetti-svg');
+
+    // 100 Common, sight-friendly 3 to 7 letter words
+    const words = [
+        "cat", "dog", "sun", "moon", "star", "tree", "bird", "fish", "bear", "lion",
+        "apple", "grape", "juice", "milk", "water", "bread", "happy", "smile", "laugh", "jump",
+        "play", "read", "write", "learn", "smart", "brave", "quick", "fast", "slow", "quiet",
+        "loud", "green", "blue", "black", "white", "brown", "pink", "shape", "heart", "earth",
+        "world", "space", "alien", "robot", "magic", "super", "hero", "friend", "family", "mother",
+        "father", "sister", "school", "class", "paper", "pencil", "story", "game", "puzzle", "block",
+        "train", "plane", "truck", "boat", "ship", "ocean", "river", "forest", "grass", "flower",
+        "plant", "spring", "summer", "autumn", "winter", "snow", "rain", "cloud", "storm", "wind",
+        "light", "dark", "night", "morning", "today", "always", "never", "please", "thank", "hello",
+        "house", "mouse", "phone", "table", "chair", "shoes", "shirt", "pants", "socks", "clock"
+    ];
+
+    let currentWord = "";
+    let currentLetterIndex = 0;
+    let score = 0;
+    let isAnimating = false;
+    let wordBag = [];
+
+    window.onload = startRound;
+
+    function getNextWord() {
+        if (wordBag.length === 0) {
+            wordBag = [...words].sort(() => Math.random() - 0.5);
+        }
+        return wordBag.pop();
+    }
+
+    function startRound() {
+        isAnimating = false;
+        wordContainer.innerHTML = '';
+        wordContainer.classList.remove('word-complete');
+        
+        currentWord = getNextWord();
+        currentLetterIndex = 0;
+
+        // Create individual letter spans
+        for (let i = 0; i < currentWord.length; i++) {
+            const letterSpan = document.createElement('span');
+            letterSpan.className = 'letter';
+            letterSpan.innerText = currentWord[i];
+            
+            if (i === 0) letterSpan.classList.add('current');
+            
+            wordContainer.appendChild(letterSpan);
+        }
+        
+        // Ensure hidden input is clear so mobile typing works properly
+        mobileInput.value = "";
+    }
+
+    // Capture global keyboard events
+    window.addEventListener('keydown', handleKeypress);
+    
+    // Capture mobile input field changes
+    mobileInput.addEventListener('input', (e) => {
+        const char = e.data; // Gets the last typed character
+        if (char) {
+            processKeystroke(char);
+        }
+        // Immediately clear the input so it doesn't build up text
+        setTimeout(() => mobileInput.value = "", 10);
+    });
+
+    function handleKeypress(e) {
+        // Ignore modifier keys like Shift, Ctrl, Alt, Meta
+        if (e.key.length > 1) return;
+        
+        // Focus the hidden input if they type on desktop so mobile doesn't conflict
+        mobileInput.focus();
+        
+        processKeystroke(e.key);
+    }
+
+    function processKeystroke(key) {
+        if (isAnimating) return;
+        initAudio();
+
+        const expectedLetter = currentWord[currentLetterIndex].toLowerCase();
+        const typedLetter = key.toLowerCase();
+
+        // Ensure they typed a valid alphabet character before evaluating
+        if (!/^[a-z]$/.test(typedLetter)) return;
+
+        const letterElements = document.querySelectorAll('.letter');
+        const currentSpan = letterElements[currentLetterIndex];
+
+        if (typedLetter === expectedLetter) {
+            // Correct Letter!
+            playBeep();
+            currentSpan.classList.remove('current');
+            currentSpan.classList.add('typed');
+
+            currentLetterIndex++;
+
+            if (currentLetterIndex < currentWord.length) {
+                // Move indicator to next letter
+                letterElements[currentLetterIndex].classList.add('current');
+            } else {
+                // Word Complete!
+                isAnimating = true;
+                playWin();
+                
+                wordContainer.classList.add('word-complete');
+                score++;
+                scoreVal.innerText = score;
+                
+                scoreBoard.classList.add('pop-score');
+                setTimeout(() => scoreBoard.classList.remove('pop-score'), 300);
+
+                // Small confetti pop
+                fireConfetti();
+
+                // Load next word after animation
+                setTimeout(startRound, 800);
+            }
+        } else {
+            // Wrong Letter!
+            playError();
+            currentSpan.classList.add('wrong-shake');
+            setTimeout(() => currentSpan.classList.remove('wrong-shake'), 300);
+        }
+    }
+
+    function fireConfetti() {
+        const rect = wordContainer.getBoundingClientRect();
+        const centerX = rect.left + (rect.width / 2);
+        const centerY = rect.top + (rect.height / 2);
+        const colors = ['#4fc3f7', '#81c784', '#ffb74d', '#ffeb3b'];
+        
+        for (let i = 0; i < 30; i++) {
+            const p = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            p.setAttribute("cx", centerX); p.setAttribute("cy", centerY);
+            p.setAttribute("r", Math.random() * 5 + 3); p.setAttribute("class", "particle");
+            p.style.fill = colors[Math.floor(Math.random() * colors.length)];
+            confettiSvg.appendChild(p);
+            
+            p.getBoundingClientRect(); 
+            const angle = Math.random() * Math.PI * 2; const distance = Math.random() * 200 + 50; 
+            
+            p.setAttribute("cx", centerX + Math.cos(angle) * distance);
+            p.setAttribute("cy", centerY + Math.sin(angle) * distance + 100);
+            p.style.opacity = "0";
+            
+            setTimeout(() => p.remove(), 1000);
+        }
+    }
+</script>
+</body>
+</html>
