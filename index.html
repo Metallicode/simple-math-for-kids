@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Learning Adventures 🌟 Home</title>
+    <title>Potato Heads</title>
     <style>
         :root {
             --bg: #fff9f0;
@@ -42,6 +42,26 @@
             font-size: clamp(2rem, 6vw, 3.5rem);
             letter-spacing: 1px;
             margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+        }
+
+        header h1 img {
+            height: clamp(3rem, 8vw, 5.5rem);
+            width: auto;
+            filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.18));
+            animation: bounce 1.2s ease-in-out infinite;
+        }
+
+        header h1 img:last-child {
+            animation-delay: 0.6s;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50%       { transform: translateY(-12px); }
         }
 
         header p {
@@ -266,7 +286,7 @@
 <body>
 
 <header>
-    <h1>🌟 Learning Adventures 🌟</h1>
+    <h1><img src="kali.png" alt="Kali"> Potato Heads <img src="gita.png" alt="Gita"></h1>
     <p>Pick a game and start exploring!</p>
 </header>
 
