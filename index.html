@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Adventures 🌟 Home</title>
+    <style>
+        :root {
+            --bg: #fff9f0;
+            --header-bg: linear-gradient(135deg, #ff6b6b, #ffa94d, #ffd43b, #69db7c, #4dabf7, #9775fa);
+            --card-radius: 18px;
+            --shadow: 0 4px 16px rgba(0,0,0,0.12);
+            --font: 'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', cursive;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            font-family: var(--font);
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        header {
+            background: var(--header-bg);
+            background-size: 300% 300%;
+            animation: gradientShift 8s ease infinite;
+            text-align: center;
+            padding: 36px 20px 28px;
+            color: white;
+            text-shadow: 2px 3px 0 rgba(0,0,0,0.18);
+        }
+
+        @keyframes gradientShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        header h1 {
+            font-size: clamp(2rem, 6vw, 3.5rem);
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            font-size: clamp(1rem, 3vw, 1.4rem);
+            opacity: 0.95;
+        }
+
+        /* ── AGE FILTER BAR ── */
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            padding: 22px 16px 10px;
+            background: #fff;
+            border-bottom: 3px solid #ffe4b5;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+        }
+
+        .filter-bar span {
+            font-size: 1rem;
+            font-family: var(--font);
+            color: #555;
+            display: flex;
+            align-items: center;
+            margin-right: 4px;
+        }
+
+        .age-btn {
+            font-family: var(--font);
+            font-size: 0.95rem;
+            font-weight: bold;
+            padding: 8px 18px;
+            border-radius: 50px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #f0f0f0;
+            color: #444;
+        }
+
+        .age-btn:hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
+
+        .age-btn.active, .age-btn:focus {
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .age-btn[data-age="all"].active    { background: #888; }
+        .age-btn[data-age="4-5"].active    { background: #ff6b9d; }
+        .age-btn[data-age="5-6"].active    { background: #ff922b; }
+        .age-btn[data-age="6-8"].active    { background: #2f9e44; }
+        .age-btn[data-age="8+"].active     { background: #1971c2; }
+
+        /* ── MAIN CONTENT ── */
+        main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 28px 16px 60px;
+        }
+
+        /* ── SUBJECT SECTIONS ── */
+        .subject-section {
+            margin-bottom: 44px;
+        }
+
+        .subject-section.hidden { display: none; }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: clamp(1.3rem, 4vw, 1.8rem);
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 3px dotted #ddd;
+            color: #333;
+        }
+
+        .section-icon {
+            font-size: 2rem;
+            line-height: 1;
+        }
+
+        /* ── CARD GRID ── */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 18px;
+        }
+
+        /* ── TOOL CARD ── */
+        .tool-card {
+            background: white;
+            border-radius: var(--card-radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+        }
+
+        .tool-card.hidden { display: none; }
+
+        .card-header {
+            padding: 18px 16px 10px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .card-emoji {
+            font-size: 2.4rem;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .card-titles {
+            flex: 1;
+        }
+
+        .card-name {
+            font-size: 1.05rem;
+            font-weight: bold;
+            color: #222;
+            line-height: 1.3;
+        }
+
+        .age-badge {
+            display: inline-block;
+            margin-top: 5px;
+            font-size: 0.75rem;
+            padding: 2px 10px;
+            border-radius: 50px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .age-badge.age-4-5  { background: #ff6b9d; }
+        .age-badge.age-5-6  { background: #ff922b; }
+        .age-badge.age-6-8  { background: #2f9e44; }
+        .age-badge.age-8\+  { background: #1971c2; }
+        .age-badge.age-all  { background: #888; }
+
+        .card-desc {
+            font-size: 0.85rem;
+            color: #666;
+            padding: 4px 16px 14px;
+            line-height: 1.5;
+            flex: 1;
+        }
+
+        .card-footer {
+            padding: 0 16px 16px;
+        }
+
+        .play-btn {
+            display: block;
+            width: 100%;
+            text-align: center;
+            text-decoration: none;
+            font-family: var(--font);
+            font-size: 1.05rem;
+            font-weight: bold;
+            padding: 10px 0;
+            border-radius: 50px;
+            color: white;
+            transition: filter 0.2s ease, transform 0.15s ease;
+        }
+
+        .play-btn:hover {
+            filter: brightness(1.1);
+            transform: scale(1.03);
+        }
+
+        /* Subject colour themes */
+        .subject-math    .play-btn { background: linear-gradient(90deg, #ff922b, #ffd43b); }
+        .subject-shapes  .play-btn { background: linear-gradient(90deg, #4dabf7, #9775fa); }
+        .subject-reading .play-btn { background: linear-gradient(90deg, #69db7c, #20c997); }
+        .subject-logic   .play-btn { background: linear-gradient(90deg, #339af0, #845ef7); }
+        .subject-creative .play-btn { background: linear-gradient(90deg, #ff6b6b, #f06595); }
+        .subject-music   .play-btn { background: linear-gradient(90deg, #845ef7, #cc5de8); }
+
+        .subject-math    .card-header  { border-top: 5px solid #ffa94d; }
+        .subject-shapes  .card-header  { border-top: 5px solid #74c0fc; }
+        .subject-reading .card-header  { border-top: 5px solid #69db7c; }
+        .subject-logic   .card-header  { border-top: 5px solid #845ef7; }
+        .subject-creative .card-header { border-top: 5px solid #ff6b6b; }
+        .subject-music   .card-header  { border-top: 5px solid #cc5de8; }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #aaa;
+            font-size: 1.2rem;
+            display: none;
+        }
+
+        .empty-state.visible { display: block; }
+
+        /* ── FOOTER ── */
+        footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 0.85rem;
+            color: #bbb;
+            background: #fff;
+            border-top: 2px solid #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🌟 Learning Adventures 🌟</h1>
+    <p>Pick a game and start exploring!</p>
+</header>
+
+<!-- Age filter bar -->
+<nav class="filter-bar">
+    <span>Show me:</span>
+    <button class="age-btn active" data-age="all">⭐ All Ages</button>
+    <button class="age-btn" data-age="4-5">🐣 Ages 4–5</button>
+    <button class="age-btn" data-age="5-6">🐥 Ages 5–6</button>
+    <button class="age-btn" data-age="6-8">🐦 Ages 6–8</button>
+    <button class="age-btn" data-age="8+">🦅 Ages 8+</button>
+</nav>
+
+<main>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- NUMBERS & MATHS                           -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="subject-section subject-math" data-subject="math">
+        <h2 class="section-title"><span class="section-icon">🔢</span> Numbers &amp; Maths</h2>
+        <div class="card-grid">
+
+            <div class="tool-card subject-math" data-ages="4-5">
+                <div class="card-header">
+                    <span class="card-emoji">🎈</span>
+                    <div class="card-titles">
+                        <div class="card-name">Let's Count!</div>
+                        <span class="age-badge age-4-5">Ages 4–5</span>
+                    </div>
+                </div>
+                <div class="card-desc">Add and subtract with bouncing balloons and colourful objects. See numbers come alive!</div>
+                <div class="card-footer"><a class="play-btn" href="calc_01.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-math" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">🐸</span>
+                    <div class="card-titles">
+                        <div class="card-name">Number Line Jumps!</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Hop along the number line to add and subtract. Watch the frog jump to the answer!</div>
+                <div class="card-footer"><a class="play-btn" href="calc_02.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-math" data-ages="4-5">
+                <div class="card-header">
+                    <span class="card-emoji">⚖️</span>
+                    <div class="card-titles">
+                        <div class="card-name">Let's Compare!</div>
+                        <span class="age-badge age-4-5">Ages 4–5</span>
+                    </div>
+                </div>
+                <div class="card-desc">Is this number bigger, smaller, or equal? Use the scale to find out!</div>
+                <div class="card-footer"><a class="play-btn" href="comparison.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-math" data-ages="4-5">
+                <div class="card-header">
+                    <span class="card-emoji">🚂</span>
+                    <div class="card-titles">
+                        <div class="card-name">Order the Train!</div>
+                        <span class="age-badge age-4-5">Ages 4–5</span>
+                    </div>
+                </div>
+                <div class="card-desc">Put the carriages in the right order from smallest to biggest. All aboard!</div>
+                <div class="card-footer"><a class="play-btn" href="order.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-math" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">🦆</span>
+                    <div class="card-titles">
+                        <div class="card-name">Duck Battle Math!</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Battle it out with ducks! Solve the maths problem to win the round.</div>
+                <div class="card-footer"><a class="play-btn" href="ducks.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-math" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">🔍</span>
+                    <div class="card-titles">
+                        <div class="card-name">Pattern Detective!</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Spot the rule in the number rows and fill in the missing pieces.</div>
+                <div class="card-footer"><a class="play-btn" href="order_rows.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-math" data-ages="6-8">
+                <div class="card-header">
+                    <span class="card-emoji">💥</span>
+                    <div class="card-titles">
+                        <div class="card-name">Super Math Burst!</div>
+                        <span class="age-badge age-6-8">Ages 6–8</span>
+                    </div>
+                </div>
+                <div class="card-desc">Answer fast to blast your character across the screen. Can you get a perfect score?</div>
+                <div class="card-footer"><a class="play-btn" href="potato_head.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-math" data-ages="6-8">
+                <div class="card-header">
+                    <span class="card-emoji">🍕</span>
+                    <div class="card-titles">
+                        <div class="card-name">Pizza Fraction Chef!</div>
+                        <span class="age-badge age-6-8">Ages 6–8</span>
+                    </div>
+                </div>
+                <div class="card-desc">Slice the pizza to explore halves, quarters and more. Maths has never been so tasty!</div>
+                <div class="card-footer"><a class="play-btn" href="fraction.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-math" data-ages="6-8">
+                <div class="card-header">
+                    <span class="card-emoji">✖️</span>
+                    <div class="card-titles">
+                        <div class="card-name">Fast Multiplier</div>
+                        <span class="age-badge age-6-8">Ages 6–8</span>
+                    </div>
+                </div>
+                <div class="card-desc">Race through the multiplication tables. How fast can you fill the grid?</div>
+                <div class="card-footer"><a class="play-btn" href="mul.html">▶ Play!</a></div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- SHAPES & SPACE                            -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="subject-section subject-shapes" data-subject="shapes">
+        <h2 class="section-title"><span class="section-icon">🔷</span> Shapes &amp; Space</h2>
+        <div class="card-grid">
+
+            <div class="tool-card subject-shapes" data-ages="4-5">
+                <div class="card-header">
+                    <span class="card-emoji">🧩</span>
+                    <div class="card-titles">
+                        <div class="card-name">Missing Piece!</div>
+                        <span class="age-badge age-4-5">Ages 4–5</span>
+                    </div>
+                </div>
+                <div class="card-desc">Find the shape that completes the pattern. Click the piece that fits!</div>
+                <div class="card-footer"><a class="play-btn" href="pattern.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-shapes" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">📐</span>
+                    <div class="card-titles">
+                        <div class="card-name">Rubber Band Geometry</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Pick a shape and drag its corners to stretch and reshape it. Explore squares, triangles and more!</div>
+                <div class="card-footer"><a class="play-btn" href="geometry_01.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-shapes" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">🕵️</span>
+                    <div class="card-titles">
+                        <div class="card-name">Geometry Detective</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Count the corners and sides, then pick the correct shape name. Become a shape expert!</div>
+                <div class="card-footer"><a class="play-btn" href="geometry_02.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-shapes" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">🧩</span>
+                    <div class="card-titles">
+                        <div class="card-name">The Geometric Mosaic</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Drag irregular pieces into their matching holes to build a mosaic. A tricky shape puzzle!</div>
+                <div class="card-footer"><a class="play-btn" href="geometry_03.html">▶ Play!</a></div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- READING & WRITING                         -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="subject-section subject-reading" data-subject="reading">
+        <h2 class="section-title"><span class="section-icon">📚</span> Reading &amp; Writing</h2>
+        <div class="card-grid">
+
+            <div class="tool-card subject-reading" data-ages="4-5">
+                <div class="card-header">
+                    <span class="card-emoji">🔤</span>
+                    <div class="card-titles">
+                        <div class="card-name">Letter Listener</div>
+                        <span class="age-badge age-4-5">Ages 4–5</span>
+                    </div>
+                </div>
+                <div class="card-desc">Listen to a letter sound and tap the right letter. Learn the alphabet with your ears!</div>
+                <div class="card-footer"><a class="play-btn" href="letters.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-reading" data-ages="4-5">
+                <div class="card-header">
+                    <span class="card-emoji">📝</span>
+                    <div class="card-titles">
+                        <div class="card-name">Word Explorer</div>
+                        <span class="age-badge age-4-5">Ages 4–5</span>
+                    </div>
+                </div>
+                <div class="card-desc">Look at the picture and find the word that matches. Build your first reading vocabulary!</div>
+                <div class="card-footer"><a class="play-btn" href="read.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-reading" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">🕵️</span>
+                    <div class="card-titles">
+                        <div class="card-name">Reading Detective</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Read the question and click the picture that answers it. Great for early comprehension!</div>
+                <div class="card-footer"><a class="play-btn" href="comprehension.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-reading" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">🕹️</span>
+                    <div class="card-titles">
+                        <div class="card-name">Action Reader</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Read the sentence and drag or click to do exactly what it says. Can you follow every instruction?</div>
+                <div class="card-footer"><a class="play-btn" href="comprehension2.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-reading" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">🎭</span>
+                    <div class="card-titles">
+                        <div class="card-name">Action Theater</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Watch the actor and name what they are doing. Learn action words (verbs) through performance!</div>
+                <div class="card-footer"><a class="play-btn" href="verbs.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-reading" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">⌨️</span>
+                    <div class="card-titles">
+                        <div class="card-name">Keyboard Explorer</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Type the letters on your keyboard to spell the words. Get comfortable with the keys!</div>
+                <div class="card-footer"><a class="play-btn" href="type.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-reading" data-ages="6-8">
+                <div class="card-header">
+                    <span class="card-emoji">🧱</span>
+                    <div class="card-titles">
+                        <div class="card-name">Sentence Architect</div>
+                        <span class="age-badge age-6-8">Ages 6–8</span>
+                    </div>
+                </div>
+                <div class="card-desc">Read the question and build the exact answer by placing words in the right order. Master sentence structure!</div>
+                <div class="card-footer"><a class="play-btn" href="master_read.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-reading" data-ages="6-8">
+                <div class="card-header">
+                    <span class="card-emoji">📜</span>
+                    <div class="card-titles">
+                        <div class="card-name">Quest Log</div>
+                        <span class="age-badge age-6-8">Ages 6–8</span>
+                    </div>
+                </div>
+                <div class="card-desc">Follow multi-step written instructions carefully to unlock the hidden treasure. Reading with a purpose!</div>
+                <div class="card-footer"><a class="play-btn" href="scripts.html">▶ Play!</a></div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- LOGIC & CODING                            -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="subject-section subject-logic" data-subject="logic">
+        <h2 class="section-title"><span class="section-icon">🧠</span> Logic &amp; Coding</h2>
+        <div class="card-grid">
+
+            <div class="tool-card subject-logic" data-ages="6-8">
+                <div class="card-header">
+                    <span class="card-emoji">🤖</span>
+                    <div class="card-titles">
+                        <div class="card-name">Robo-Chef Logic Kitchen</div>
+                        <span class="age-badge age-6-8">Ages 6–8</span>
+                    </div>
+                </div>
+                <div class="card-desc">Flip the switches to feed the robot the correct data and solve the logic puzzles. Introduction to AND, OR, NOT!</div>
+                <div class="card-footer"><a class="play-btn" href="logic.html">▶ Play!</a></div>
+            </div>
+
+            <div class="tool-card subject-logic" data-ages="8+">
+                <div class="card-header">
+                    <span class="card-emoji">💻</span>
+                    <div class="card-titles">
+                        <div class="card-name">Binary Code Breaker</div>
+                        <span class="age-badge age-8+">Ages 8+</span>
+                    </div>
+                </div>
+                <div class="card-desc">Crack codes using only 0s and 1s. Learn how computers think with binary numbers!</div>
+                <div class="card-footer"><a class="play-btn" href="binary.html">▶ Play!</a></div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- MUSIC                                     -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="subject-section subject-music" data-subject="music">
+        <h2 class="section-title"><span class="section-icon">🎵</span> Music</h2>
+        <div class="card-grid">
+
+            <div class="tool-card subject-music" data-ages="5-6">
+                <div class="card-header">
+                    <span class="card-emoji">✨</span>
+                    <div class="card-titles">
+                        <div class="card-name">Melody Striker</div>
+                        <span class="age-badge age-5-6">Ages 5–6</span>
+                    </div>
+                </div>
+                <div class="card-desc">Tap the spacebar when the note hits the glowing line. Feel the rhythm and keep the beat!</div>
+                <div class="card-footer"><a class="play-btn" href="midi.html">▶ Play!</a></div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- CREATIVE                                  -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="subject-section subject-creative" data-subject="creative">
+        <h2 class="section-title"><span class="section-icon">🎨</span> Creative Play</h2>
+        <div class="card-grid">
+
+            <div class="tool-card subject-creative" data-ages="all">
+                <div class="card-header">
+                    <span class="card-emoji">🖌️</span>
+                    <div class="card-titles">
+                        <div class="card-name">Color Mixer &amp; Painter</div>
+                        <span class="age-badge age-all">All Ages</span>
+                    </div>
+                </div>
+                <div class="card-desc">Drag coloured blobs across the canvas and watch the colours blend together. Free creative play!</div>
+                <div class="card-footer"><a class="play-btn" href="other/index.html">▶ Play!</a></div>
+            </div>
+
+        </div>
+    </section>
+
+    <div class="empty-state" id="empty-state">
+        😅 No games found for this filter. Try a different age group!
+    </div>
+
+</main>
+
+<footer>
+    Learning Adventures &mdash; Homeschool Tools &mdash; Last updated April 2026
+</footer>
+
+<script>
+    const buttons = document.querySelectorAll('.age-btn');
+    const cards   = document.querySelectorAll('.tool-card');
+    const sections = document.querySelectorAll('.subject-section');
+    const emptyState = document.getElementById('empty-state');
+
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Update active button
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const selectedAge = btn.dataset.age;
+
+            // Show/hide individual cards
+            cards.forEach(card => {
+                const cardAge = card.dataset.ages;
+                if (selectedAge === 'all' || cardAge === selectedAge || cardAge === 'all') {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+
+            // Hide sections that have zero visible cards
+            let anyVisible = false;
+            sections.forEach(section => {
+                const visibleCards = section.querySelectorAll('.tool-card:not(.hidden)');
+                if (visibleCards.length === 0) {
+                    section.classList.add('hidden');
+                } else {
+                    section.classList.remove('hidden');
+                    anyVisible = true;
+                }
+            });
+
+            emptyState.classList.toggle('visible', !anyVisible);
+        });
+    });
+</script>
+
+</body>
+</html>
